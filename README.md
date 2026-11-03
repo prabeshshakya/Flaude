@@ -75,7 +75,9 @@ In the panel, open **settings** (the slider icon, top right):
 3. **Connections** → **Figma** → **Connect**, approve in the browser. **Required** — this is what lets Claude edit the file.
 4. *Optional:* **Jira and Confluence** → **Connect**, so Claude can read tickets and specs. Read-only.
 
-Each row shows its status, and the header dot turns green when everything needed is connected.
+Each row shows its status, and the header dot turns green when everything needed is connected. **Refresh** re-reads the real status from Claude Code at any time.
+
+If the browser doesn't open on its own, the sign-in link is printed in the row — **Copy link** and paste it into a browser yourself. And if this computer can't give the sign-in the terminal it needs, the buttons become **How to connect**: the row shows the exact command to run, with a **Copy command** button and **I ran it — check again**. Nothing is hidden either way; the statuses stay live.
 
 ### 5. Check it works
 
@@ -255,7 +257,8 @@ Whatever the symptom, `npm run doctor` in `bridge/` checks the whole chain and n
 | Locked for a minute | Something sent the bridge 10 wrong tokens. Wait a minute; if it recurs, `npm run rotate-token` and check what else is running. |
 | Connect Figma / Sign in to Claude (header) | Click it: settings opens on Connections. |
 | A sign-in never finishes | Cancel and try again. Make sure you approved in the browser that opened, not an older tab. |
-| "Couldn't open a sign-in terminal" | The bridge couldn't start the helper that sign-in needs. Run the command it shows in a terminal (for example `claude mcp login atlassian`); the plugin picks the result up. |
+| No browser window opened | Figma can refuse to open one (in the browser it is a popup, and over SSH there is no browser at all). The row prints the sign-in link: **Copy link**, paste it into a browser, approve, and paste any code back. |
+| Rows say "Connect it from the terminal" | This computer can't give the sign-in the terminal it needs — the note under the list says what's missing (`script` and `mkfifo`, or Windows). Press **How to connect**, **Copy command**, run it where the bridge is running, then **I ran it — check again**. |
 | Disconnect says it's still connected | The message names the connection that stayed on and why. If it's one you added by hand, `claude mcp remove <name>` removes it completely. |
 | Mentions Jira but no Atlassian server | Settings, Connections, Jira and Confluence, Connect. |
 | Claude can read the file but can't edit it | The Dev Mode desktop MCP server is read-only. Connect the hosted one: `https://mcp.figma.com/mcp`. Doctor flags this as "No use_figma write tool". |

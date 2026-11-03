@@ -314,6 +314,11 @@
   .conn .job .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .conn .job input { flex: 1; min-width: 120px; height: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 8px; background: var(--bg); font: 11px var(--mono); }
   .conn .job input:focus { outline: none; border-color: var(--sel); }
+  .conn .job.manual { color: var(--text2); }
+  .conn .cmd { grid-column: 2 / span 2; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 11px; line-height: 16px; color: var(--text2); }
+  .conn .cmd pre, .conn .job pre { margin: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font: 11px/17px var(--mono); white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
+  .conn .link { color: var(--text2); font: 11px/16px var(--mono); word-break: break-all; user-select: text; -webkit-user-select: text; }
+  .conns-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .conns-note { color: var(--text2); font-size: 11px; line-height: 16px; }
   .status { cursor: pointer; border-radius: var(--r-sm); }
   .status:hover { background: var(--bg-hover); }
@@ -390,7 +395,10 @@
 
   <div class="sheet" id="settings" role="dialog" aria-label="Settings">
     <div class="pad">
-      <h2>Connections</h2>
+      <div class="conns-head">
+        <h2>Connections</h2>
+        <button class="btn sm" id="connsRefresh" type="button">Refresh</button>
+      </div>
       <div class="conns" id="conns"></div>
       <div class="conns-note" id="connsNote"></div>
       <h2 style="margin-top:6px">Memory</h2>
@@ -568,6 +576,7 @@
         break;
       }
       case 'changes': onChanges(msg); break;
+      case 'external-failed': toast('Figma could not open your browser. Copy the link instead.'); break;
     }
   };
 
@@ -1842,6 +1851,7 @@
   };
   state.conns = null;
   state.connBusy = {}; // row id -> label, survives re-renders
+  state.connManual = {}; // row id -> showing the terminal steps
   let connTimer = null;
   const codeDrafts = {};
 
@@ -1875,7 +1885,34 @@
     else if (figma && figma.status !== 'connected' && figma.status !== 'pending') setStatus('warn', 'Connect Figma', 'Open Connections in settings');
   }
 
-  function connRow(key, name, statusKind, statusText, job, actions) {
+  // A block of terminal commands with a Copy button. Figma's iframe cannot
+  // open a terminal, and in the browser it often cannot open a tab either,
+  // so copy-and-paste is the one path that always works.
+  function cmdBox(lines, hint, extra) {
+    const box = el('div', 'cmd');
+    if (hint) box.appendChild(el('div', null, hint));
+    box.appendChild(el('pre', null, lines.join('\n')));
+    const r = el('div', 'row');
+    const copy = el('button', 'btn sm', lines.length > 1 ? 'Copy commands' : 'Copy command');
+    copy.onclick = () => toast(copyText(lines.join('\n')) ? 'Copied. Paste it into your terminal.' : 'Copy failed — select the text and copy it.');
+    r.appendChild(copy);
+    for (const b of extra || []) r.appendChild(b);
+    box.appendChild(r);
+    return box;
+  }
+
+  // "I ran it" — drop the job and re-read the real status from the CLI.
+  function recheckBtn(key) {
+    const b = el('button', 'btn sm', 'I ran it — check again');
+    b.onclick = () => runBusy(b, 'Checking…', async () => {
+      await connApi('/cancel', { id: key }).catch(() => {});
+      delete state.connManual[key];
+      await loadConnections(true);
+    });
+    return b;
+  }
+
+  function connRow(key, name, statusKind, statusText, job, actions, manual) {
     const row = el('div', 'conn' + (state.connBusy[key] ? ' busy' : ''));
     if (state.connBusy[key]) { statusKind = ''; statusText = state.connBusy[key]; }
     const ic = el('div', 'ic');
@@ -1889,8 +1926,9 @@
     const act = el('div', 'act');
     for (const a of actions) act.appendChild(a);
     row.appendChild(act);
+    const manualJob = job && (job.manual || job.state === 'manual');
     if (job && job.state !== 'done') {
-      const box = el('div', 'job' + (job.state === 'failed' ? ' failed' : ''));
+      const box = el('div', 'job' + (job.state === 'failed' ? ' failed' : manualJob ? ' manual' : ''));
       box.appendChild(el('div', null, job.message || ''));
       if (job.state === 'running') {
         if (job.needsCode) {
@@ -1915,18 +1953,41 @@
         }
         const r2 = el('div', 'row');
         if (job.url) {
+          // The browser may be on another computer, or blocked from opening
+          // by Figma, so the link is always here to copy by hand.
+          box.appendChild(el('div', null, 'If no browser window opened, copy this link into one:'));
+          box.appendChild(el('div', 'link', job.url));
           const open = el('button', 'btn sm', 'Open sign-in page');
           open.onclick = () => post({ type: 'open-external', url: job.url });
-          r2.appendChild(open);
+          const copy = el('button', 'btn sm', 'Copy link');
+          copy.onclick = () => toast(copyText(job.url) ? 'Link copied. Paste it into your browser.' : 'Copy failed — select the link and copy it.');
+          r2.append(open, copy);
         }
         const cancel = el('button', 'btn sm', 'Cancel');
         cancel.onclick = () => runBusy(cancel, 'Cancelling…', async () => { await connApi('/cancel', { id: key }).catch(() => {}); await loadConnections(false); });
         r2.appendChild(cancel);
         box.appendChild(r2);
       }
+      if (manualJob && manual && manual.commands && manual.commands.length) {
+        const dismiss = el('button', 'btn sm', 'Dismiss');
+        dismiss.onclick = () => runBusy(dismiss, 'Closing…', async () => { await connApi('/cancel', { id: key }).catch(() => {}); await loadConnections(false); });
+        box.appendChild(cmdBox(manual.commands, manual.hint, [recheckBtn(key), dismiss]));
+      }
       row.appendChild(box);
     }
+    // Asked for the terminal steps without starting anything.
+    if (!manualJob && manual && state.connManual[key] && manual.commands && manual.commands.length) {
+      row.appendChild(cmdBox(manual.commands, manual.hint, [recheckBtn(key)]));
+    }
     return row;
+  }
+
+  // Reveals the terminal steps for a row instead of starting a sign-in here.
+  function manualBtn(key, label) {
+    const open = !!state.connManual[key];
+    const b = el('button', 'btn sm', open ? 'Hide' : label);
+    b.onclick = () => { state.connManual[key] = !open; renderConnections(); };
+    return b;
   }
 
   function actionBtn(key, label, primary, fn, busyLabel, title) {
@@ -1969,36 +2030,57 @@
     }
     if (state.connsError) note.textContent = state.connsError;
 
+    // Signing in needs a terminal on the computer running the bridge. When it
+    // cannot have one, the list still reports every status; it just hands over
+    // the commands to run instead of a button that would fail.
+    const canSignIn = !c.signIn || c.signIn.supported !== false;
+    const where = c.signIn && c.signIn.cwd ? ` in the terminal where the bridge is running (${c.signIn.cwd})` : ' in the terminal where the bridge is running';
+    const manualFor = (key, commands) => (commands && commands.length ? { commands, hint: `Run this${where}, then come back and press “I ran it”.` } : null);
+
     const acc = c.account;
     const accRunning = acc.job && acc.job.state === 'running';
+    const accActions = accRunning ? []
+      : canSignIn
+        ? [actionBtn('claude', acc.loggedIn ? 'Switch' : 'Sign in', !acc.loggedIn, () => connApi('/connect', { id: 'claude' }), 'Opening sign-in…')]
+        : [manualBtn('claude', acc.loggedIn ? 'Switch account' : 'How to sign in')];
     box.appendChild(connRow('claude', 'Claude account',
       acc.loggedIn ? 'ready' : 'warn',
-      acc.loggedIn ? (acc.email ? `Signed in as ${acc.email}` : 'Signed in') : 'Not signed in',
+      acc.loggedIn ? (acc.email ? `Signed in as ${acc.email}` : 'Signed in') : canSignIn ? 'Not signed in' : 'Not signed in — sign in from the terminal',
       acc.job,
-      accRunning ? [] : [acc.loggedIn
-        ? actionBtn('claude', 'Switch', false, () => connApi('/connect', { id: 'claude' }), 'Opening sign-in…')
-        : actionBtn('claude', 'Sign in', true, () => connApi('/connect', { id: 'claude' }), 'Opening sign-in…')]));
+      accActions,
+      manualFor('claude', acc.commands)));
 
     for (const k of c.connectors) {
       const running = k.job && k.job.state === 'running';
       const [kind, text] = STATUS_TEXT[k.status] || ['bad', k.status];
       const fromClaude = k.managedBy === 'claude.ai';
       const many = (k.servers || []).length > 1 ? ` (${k.servers.length} connections)` : '';
+      const needsSignIn = k.status !== 'connected' && k.status !== 'disabled';
       const label = k.status === 'failed' && k.detail ? `${text}: ${k.detail}`
         : k.status === 'connected' ? `${text}${fromClaude ? ' (from your claude.ai connectors)' : many}`
         : k.status === 'disabled' ? `${text}${fromClaude ? '; still on in claude.ai' : ''}`
-        : `${text}. ${k.about}`;
+        : `${text}. ${k.about}${canSignIn ? '' : ' Connect it from the terminal.'}`;
+      // Turning a server on or off never needs a terminal, so those stay.
       const actions = running ? []
         : k.status === 'connected'
           ? [actionBtn(k.id, 'Disconnect', false, () => connApi('/disconnect', { id: k.id }), 'Disconnecting…',
               fromClaude ? 'Turns it off for the bridge only; claude.ai is unaffected' : 'Signs out here; connections from claude.ai are turned off for the bridge only')]
           : k.status === 'disabled'
             ? [actionBtn(k.id, 'Turn on', true, () => connApi('/connect', { id: k.id }), 'Turning on…')]
-            : [actionBtn(k.id, k.status === 'not-added' ? 'Connect' : 'Reconnect', true, () => connApi('/connect', { id: k.id }), k.status === 'not-added' ? 'Connecting…' : 'Reconnecting…')];
-      box.appendChild(connRow(k.id, k.name, kind, label, k.job, actions));
+            : canSignIn
+              ? [actionBtn(k.id, k.status === 'not-added' ? 'Connect' : 'Reconnect', true, () => connApi('/connect', { id: k.id }), k.status === 'not-added' ? 'Connecting…' : 'Reconnecting…')]
+              : [manualBtn(k.id, k.status === 'not-added' ? 'How to connect' : 'How to reconnect')];
+      const manualJob = k.job && (k.job.manual || k.job.state === 'manual');
+      box.appendChild(connRow(k.id, k.name, kind, label, k.job, actions, needsSignIn || !canSignIn || manualJob ? manualFor(k.id, k.commands) : null));
     }
-    note.textContent = 'Sign-ins open in your browser, the same way connectors work in the Claude app. Approve there, then come back.';
+    note.textContent = canSignIn
+      ? 'Sign-ins open in your browser, the same way connectors work in the Claude app. Approve there, then come back.'
+      : `${c.signIn.reason} The statuses above are live — connect from the terminal, then press Refresh.`;
   }
+  $('connsRefresh').onclick = () => runBusy($('connsRefresh'), 'Checking…', async () => {
+    await checkHealth();
+    await loadConnections(true);
+  });
   $('saveSettings').onclick = () => runBusy($('saveSettings'), 'Saving…', async () => {
     readSettings();
     const h = await checkHealth();

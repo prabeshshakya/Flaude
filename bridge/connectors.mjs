@@ -111,6 +111,70 @@ function spawnInTerminal(args) {
 const CLAUDE_AI_NAME = /^claude[._ -]?ai\b/i;
 const TERMINAL_FAIL = /tcgetattr|ioctl|openpty|not supported on socket|isn't a terminal|not a tty/i;
 
+// ---------- can this computer sign in from the plugin? ----------
+
+// A sign-in only starts if the CLI thinks it has a terminal, and the terminal
+// we fake for it needs `mkfifo` and `script`. Windows has neither, and slim
+// Linux images often drop `script`. Check once so the plugin can say "do this
+// in Terminal" up front instead of offering a button that cannot work.
+let signIn = null;
+
+function has(bin) {
+  try {
+    execFileSync('sh', ['-c', `command -v ${bin}`], { stdio: 'ignore' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function signInSupport() {
+  if (signIn) return signIn;
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    signIn = { supported: false, reason: `Signing in from the plugin needs a terminal, which this bridge cannot open on ${process.platform}.` };
+  } else {
+    const missing = ['mkfifo', 'script'].filter((b) => !has(b));
+    signIn = missing.length
+      ? { supported: false, reason: `Signing in from the plugin needs ${missing.join(' and ')}, which ${missing.length > 1 ? "aren't" : "isn't"} installed on this computer.` }
+      : { supported: true, reason: null };
+  }
+  return signIn;
+}
+
+// Called when a sign-in dies on a terminal problem anyway: stop offering the
+// button for the rest of this run.
+function signInUnavailable(reason) {
+  signIn = { supported: false, reason };
+}
+
+// The command to type by hand. Prefer a plain `claude` when it is on PATH;
+// otherwise point at the copy inside the Agent SDK so the line still works.
+let cliName = null;
+function cliCommandName() {
+  if (cliName) return cliName;
+  const bin = has('claude') ? 'claude' : claudeCli();
+  // A path with spaces still has to paste cleanly. cmd.exe has no single
+  // quotes, so Windows gets double ones.
+  if (/^[\w@%+=:,./-]+$/.test(bin)) cliName = bin;
+  else if (process.platform === 'win32') cliName = `"${bin.replace(/"/g, '')}"`;
+  else cliName = `'${bin.replace(/'/g, `'\\''`)}'`;
+  return cliName;
+}
+
+// The exact lines to run in the terminal where the bridge lives.
+export function manualSteps(key, status) {
+  const cli = cliCommandName();
+  if (key === 'claude') return [`${cli} auth login --claudeai`];
+  const c = CATALOG.find((x) => x.id === key);
+  if (!c) return [];
+  const row = status && status.connectors.find((x) => x.id === key);
+  const own = row && (row.servers || []).find((x) => !x.managedBy);
+  const steps = [];
+  if (!row || !row.added) steps.push(`${cli} mcp add --transport http --scope user ${c.id} ${c.url}`);
+  steps.push(`${cli} mcp login ${own ? own.name : row && row.serverName ? row.serverName : c.id}`);
+  return steps;
+}
+
 // ---------- status ----------
 
 function parseStatus(text) {
@@ -188,27 +252,39 @@ const jobs = new Map(); // key: 'claude' | connector id
 function withJobs(status) {
   const view = (key) => {
     const j = jobs.get(key);
-    return j ? { state: j.state, url: j.url, needsCode: j.needsCode, message: j.message } : null;
+    return j ? { state: j.state, url: j.url, needsCode: j.needsCode, message: j.message, manual: !!j.manual, commands: j.commands || null } : null;
   };
+  const s = signInSupport();
   return {
-    account: { ...status.account, job: view('claude') },
-    connectors: status.connectors.map((c) => ({ ...c, job: view(c.id) })),
+    signIn: { supported: s.supported, reason: s.reason, cwd: WORKSPACE },
+    account: { ...status.account, job: view('claude'), commands: manualSteps('claude', status) },
+    connectors: status.connectors.map((c) => ({ ...c, job: view(c.id), commands: manualSteps(c.id, status) })),
   };
 }
 
-function startJob(key, args) {
-  // (args is used in the close handler to suggest the Terminal fallback)
+// Starts a sign-in, or hands back the terminal commands when this computer
+// cannot run one. Either way the plugin gets something to show.
+function login(key, args, commands) {
+  const s = signInSupport();
+  if (s.supported) return startJob(key, args, commands);
+  const job = { state: 'manual', url: null, needsCode: false, manual: true, commands, message: s.reason };
+  jobs.set(key, job);
+  return job;
+}
+
+function startJob(key, args, commands) {
   const existing = jobs.get(key);
   if (existing && existing.state === 'running') return existing;
 
-  const job = { id: randomBytes(6).toString('hex'), state: 'running', url: null, needsCode: false, message: 'Opening your browser…', out: '' };
+  const job = { id: randomBytes(6).toString('hex'), state: 'running', url: null, needsCode: false, manual: false, commands, message: 'Opening your browser…', out: '' };
   jobs.set(key, job);
 
   let child;
   try {
     child = spawnInTerminal(args);
   } catch (e) {
-    Object.assign(job, { state: 'failed', message: e.message });
+    signInUnavailable(e.message);
+    Object.assign(job, { state: 'manual', manual: true, message: e.message });
     return job;
   }
   job.child = child;
@@ -245,8 +321,9 @@ function startJob(key, args) {
     if (failed) {
       const last = job.out.trim().split('\n').filter(Boolean).pop() || '';
       if (TERMINAL_FAIL.test(job.out)) {
-        const cmd = args[0] === 'auth' ? 'claude, then /login' : `claude mcp login ${args[args.length - 1]}`;
-        job.message = `Couldn't open a sign-in terminal on this computer. Finish it in Terminal instead: ${cmd}`;
+        job.manual = true;
+        job.message = "This computer wouldn't give the sign-in a terminal. Run it yourself instead:";
+        signInUnavailable("Sign-ins from the plugin can't get a terminal on this computer.");
       } else job.message = job.message.startsWith('Timed out') ? job.message : last.slice(0, 240) || 'Sign-in did not finish.';
     } else job.message = 'Connected.';
     job.child = null;
@@ -283,7 +360,7 @@ async function scopeOf(serverName) {
 }
 
 export async function connect(id) {
-  if (id === 'claude') return startJob('claude', ['auth', 'login', '--claudeai']);
+  if (id === 'claude') return login('claude', ['auth', 'login', '--claudeai'], manualSteps('claude', null));
   const c = CATALOG.find((x) => x.id === id);
   if (!c) throw new Error('Unknown connector');
   const status = await getStatus(true);
@@ -308,7 +385,7 @@ export async function connect(id) {
     if (r.code !== 0 && !/already exists/i.test(r.out)) throw new Error(r.out.trim() || 'Could not add the server.');
     name = c.id;
   }
-  return startJob(id, ['mcp', 'login', name]);
+  return login(id, ['mcp', 'login', name], [`${cliCommandName()} mcp login ${name}`]);
 }
 
 export async function disconnect(id) {

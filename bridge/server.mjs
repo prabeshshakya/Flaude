@@ -393,7 +393,7 @@ const server = (host) =>
         try {
           if (action === 'connect') {
             const job = await connect(id);
-            return json(res, 200, { ok: true, state: job.state, url: job.url, message: job.message });
+            return json(res, 200, { ok: true, state: job.state, url: job.url, message: job.message, manual: !!job.manual, commands: job.commands || null });
           }
           if (action === 'code') {
             submitCode(id, body.code || '');

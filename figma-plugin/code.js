@@ -726,7 +726,15 @@ figma.ui.onmessage = async (msg) => {
         break;
       case 'open-external':
         // Only web links. Never file:, javascript: or custom schemes.
-        if (typeof msg.url === 'string' && /^https?:\/\//i.test(msg.url) && msg.url.length < 4096) figma.openExternal(msg.url);
+        if (typeof msg.url === 'string' && /^https?:\/\//i.test(msg.url) && msg.url.length < 4096) {
+          // Figma can refuse this - on the web it is a popup the browser may
+          // block - so tell the UI, which offers the link to copy instead.
+          try {
+            figma.openExternal(msg.url);
+          } catch (e) {
+            figma.ui.postMessage({ type: 'external-failed', message: String((e && e.message) || e) });
+          }
+        }
         break;
     }
   } catch (e) {
@@ -738,7 +746,7 @@ figma.ui.onmessage = async (msg) => {
 
 (async () => {
   const size = (await figma.clientStorage.getAsync('size')) || DEFAULT_SIZE;
-  figma.showUI(__html__, { themeColors: true, width: size.width, height: size.height, title: 'Claude Bridge' });
+  figma.showUI(__html__, { themeColors: true, width: size.width, height: size.height, title: 'Flaude' });
   figma.root.setRelaunchData({ open: 'Chat with Claude about this file' });
   watchPage(figma.currentPage);
   figma.on('selectionchange', queueSelection);
