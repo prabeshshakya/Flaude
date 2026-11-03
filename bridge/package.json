@@ -1,0 +1,19 @@
+{
+  "name": "claude-figma-bridge",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Local bridge between the Claude Bridge Figma plugin and a Claude agent that has the Figma MCP server.",
+  "scripts": {
+    "start": "node server.mjs",
+    "doctor": "node doctor.mjs",
+    "rotate-token": "node rotate-token.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.304",
+    "zod": "4.6.7"
+  }
+}

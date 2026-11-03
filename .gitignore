@@ -1,0 +1,4 @@
+node_modules/
+bridge/.bridge-token
+bridge/logs/
+bridge/workspace/memory/

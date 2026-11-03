@@ -1,0 +1,18 @@
+{
+  "name": "Flaude",
+  "id": "claude-bridge-local-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "enablePrivatePluginApi": true,
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:4545"],
+    "reasoning": "Talks only to the Claude Bridge server running on this computer."
+  },
+  "relaunchButtons": [
+    { "command": "open", "name": "Ask Claude" }
+  ]
+}

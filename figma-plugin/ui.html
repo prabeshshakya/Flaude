@@ -1,0 +1,2043 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The panel may only talk to a bridge on this computer. No remote scripts, styles, fonts or images. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:* http://127.0.0.1:*; img-src data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<style>
+  :root {
+    --bg: var(--figma-color-bg, #ffffff);
+    --bg2: var(--figma-color-bg-secondary, #f5f5f5);
+    --bg-hover: var(--figma-color-bg-hover, #f0f0f0);
+    --text: var(--figma-color-text, #1e1e1e);
+    --text2: var(--figma-color-text-secondary, #6e6e6e);
+    --text3: var(--figma-color-text-tertiary, #a8a8a8);
+    --border: var(--figma-color-border, #e6e6e6);
+    --border-strong: var(--figma-color-border-strong, #c8c8c8);
+    --brand: var(--figma-color-bg-brand, #0d99ff);
+    --on-brand: var(--figma-color-text-onbrand, #ffffff);
+    --sel: var(--figma-color-border-selected, #0d99ff);
+    --sel-bg: var(--figma-color-bg-selected, #e5f4ff);
+    --sel-text: var(--figma-color-text-brand, #007be5);
+    --danger: var(--figma-color-text-danger, #dc3412);
+    --success: var(--figma-color-text-success, #14ae5c);
+    --warning: var(--figma-color-text-warning, #b86200);
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 10px;
+    color-scheme: light dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 12px/18px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  :focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+  [hidden] { display: none !important; }
+
+  .btn {
+    border: 1px solid var(--border); background: transparent; border-radius: var(--r-md);
+    height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--bg-hover); }
+  .btn.primary { background: var(--brand); color: var(--on-brand); border-color: transparent; font-weight: 500; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.06); background: var(--brand); }
+  .btn.primary:disabled { opacity: .4; }
+  .btn.stop { color: var(--danger); border-color: currentColor; }
+  .btn:disabled:not([aria-busy="true"]) { opacity: .45; }
+  .btn[aria-busy="true"] { cursor: progress; opacity: 1 !important; }
+  .btn .spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .btn .spin { animation: none; border-right-color: currentColor; opacity: .5; } }
+  .conn.busy .st { color: var(--text); }
+  .btn.sm { height: 24px; padding: 0 8px; font-size: 11px; }
+  .icon-btn {
+    border: 0; background: transparent; border-radius: var(--r-sm); flex: none;
+    width: 28px; height: 28px; display: inline-grid; place-items: center; color: var(--text2);
+  }
+  .icon-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .icon-btn[aria-pressed="true"] { color: var(--sel-text); background: var(--sel-bg); }
+  .link-btn { border: 0; background: none; padding: 0; color: var(--sel-text); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* header */
+  header {
+    display: flex; align-items: center; gap: 2px; height: 40px; flex: none;
+    padding: 0 4px; border-bottom: 1px solid var(--border);
+  }
+  .title {
+    flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 4px 6px; border-radius: var(--r-sm);
+    font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .title:hover { background: var(--bg-hover); }
+  .status { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; color: var(--text2); font-size: 11px; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex: none; }
+  .dot.ready { background: var(--success); }
+  .dot.warn { background: var(--warning); }
+  .dot.bad { background: var(--danger); }
+
+  /* target strip: the one deliberate accent in the panel */
+  .target { flex: none; display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--border); }
+  .target.kept { background: var(--sel-bg); box-shadow: inset 2px 0 0 var(--sel); }
+  .target .aim { color: var(--sel); margin-top: 5px; flex: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 26px; padding: 0 8px 0 3px;
+    border-radius: var(--r-sm); border: 1px dashed var(--sel); background: var(--bg);
+  }
+  .chip:hover { background: var(--sel-bg); }
+  .chip img, .chip .ph { width: 20px; height: 20px; border-radius: 2px; object-fit: contain; background: var(--bg2); flex: none; }
+  .chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .ty { color: var(--text3); font-size: 11px; }
+  .target .empty { color: var(--text2); padding: 4px 0; }
+  .keep { flex: none; height: 26px; padding: 0 8px; font-size: 11px; }
+  .keep[aria-pressed="true"] { color: var(--sel-text); border-color: var(--sel); }
+
+  /* log */
+  main { flex: 1; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 16px; }
+  .intro { color: var(--text2); }
+  .intro h1 { font-size: 13px; line-height: 20px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
+  .intro p { margin: 0 0 10px; }
+  .intro dl { margin: 0 0 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+  .intro dt { color: var(--text); font-weight: 500; }
+  .intro dd { margin: 0; }
+  .intro ol { margin: 0 0 10px; padding-left: 18px; }
+  .intro li { margin-bottom: 4px; }
+  code { font: 11px/16px var(--mono); background: var(--bg2); border-radius: 3px; padding: 1px 4px; }
+  .intro code { white-space: nowrap; }
+  .callout { border-left: 2px solid var(--warning); padding: 2px 0 2px 8px; color: var(--text2); margin: 6px 0; }
+  .callout.error { border-left-color: var(--danger); }
+
+  .msg.user { align-self: flex-end; max-width: 88%; background: var(--bg2); border-radius: var(--r-lg); padding: 8px 10px; }
+  .msg.user .body { white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user .on { margin-top: 4px; font-size: 11px; color: var(--text2); display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: center; }
+  .mode-tag { font-weight: 600; color: var(--text); }
+  .mode-tag.build { color: var(--sel-text); }
+  .ref { border: 0; background: none; padding: 0; color: inherit; text-decoration: underline; text-decoration-color: var(--text3); text-underline-offset: 2px; }
+  .atts { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .atts span { font-size: 11px; color: var(--text2); }
+
+  .md { word-wrap: break-word; }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md .h { font-weight: 600; margin: 12px 0 4px; }
+  .md ul, .md ol { margin: 0 0 8px; padding-left: 18px; }
+  .md li { margin: 2px 0; }
+  .md pre { overflow-x: auto; background: var(--bg2); border-radius: var(--r-sm); padding: 8px; margin: 6px 0 8px; font: 11px/16px var(--mono); }
+  .md pre code { background: none; padding: 0; }
+  .md .tbl { overflow-x: auto; margin: 0 0 8px; }
+  .md table { border-collapse: collapse; font-size: 11px; }
+  .md th, .md td { border: 1px solid var(--border); padding: 3px 6px; text-align: left; vertical-align: top; }
+  .md th { background: var(--bg2); font-weight: 600; }
+  .md a { color: var(--sel-text); }
+  .nodeid { font: 11px/16px var(--mono); border: 0; border-radius: 3px; padding: 1px 4px; background: var(--sel-bg); color: var(--sel-text); }
+  .nodeid:hover { text-decoration: underline; }
+
+  /* plan card */
+  .plan { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+  .plan .plan-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid var(--border); background: var(--bg2); font-weight: 600; }
+  .plan .plan-head svg { color: var(--sel); }
+  .plan .plan-body { padding: 10px; }
+  .plan .plan-actions { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--border); }
+  .plan .plan-state { color: var(--text2); font-size: 11px; }
+
+  details.steps { margin: 0 0 8px; color: var(--text2); }
+  details.steps summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  details.steps summary::-webkit-details-marker { display: none; }
+  details.steps summary::before { content: ""; border: 4px solid transparent; border-left-color: currentColor; margin-left: 2px; transition: transform .12s; }
+  details.steps[open] summary::before { transform: rotate(90deg) translateX(2px); }
+  .step { display: grid; grid-template-columns: 14px 1fr; gap: 6px; padding: 3px 0 3px 2px; font-size: 11px; line-height: 16px; }
+  .step .what { color: var(--text); }
+  .step .detail { display: block; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .step .err { color: var(--danger); white-space: normal; }
+  .si { width: 10px; height: 10px; margin-top: 3px; border-radius: 50%; }
+  .si.run { border: 1.5px solid var(--text3); border-top-color: var(--sel); animation: spin .8s linear infinite; }
+  .si.ok { background: var(--success); }
+  .si.fail { background: var(--danger); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .si.run { animation: none; background: var(--sel); border: 0; } }
+  .thinking { color: var(--text2); display: flex; align-items: center; gap: 6px; }
+
+  .foot { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text3); font-size: 11px; }
+  .foot .fail { color: var(--danger); }
+  .foot .btn { color: var(--text); }
+  .foot .icon-btn { width: 24px; height: 24px; color: var(--text3); }
+
+  /* composer */
+  footer { flex: none; padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); }
+  .quick { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .quick::-webkit-scrollbar { display: none; }
+  .quick button { flex: none; border: 1px solid var(--border); background: transparent; border-radius: 12px; height: 24px; padding: 0 10px; font-size: 11px; color: var(--text2); }
+  .quick button:hover { color: var(--text); background: var(--bg-hover); }
+  .composer { border: 1px solid var(--border-strong); border-radius: var(--r-lg); background: var(--bg); }
+  .composer:focus-within { border-color: var(--sel); box-shadow: 0 0 0 1px var(--sel); }
+  .composer.drag { border-style: dashed; border-color: var(--sel); background: var(--sel-bg); }
+  .pending-atts { display: flex; gap: 6px; padding: 8px 8px 0; flex-wrap: wrap; }
+  .patt { position: relative; width: 44px; height: 44px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); }
+  .patt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .patt button { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 10px; line-height: 16px; padding: 0; }
+  textarea {
+    display: block; width: 100%; resize: none; min-height: 52px; max-height: 200px; border: 0; background: transparent;
+    padding: 8px 10px 4px; line-height: 18px; font-size: 12px;
+  }
+  textarea:focus { outline: none; }
+  textarea::placeholder { color: var(--text3); }
+  .tools { display: flex; align-items: center; gap: 4px; padding: 4px 6px 6px; }
+  .tools .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-md); padding: 1px; gap: 1px; flex: none; }
+  .seg button { border: 0; background: transparent; border-radius: 4px; height: 22px; padding: 0 8px; font-size: 11px; color: var(--text2); }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--bg-hover); color: var(--text); font-weight: 600; }
+  .seg button[data-mode="plan"][aria-pressed="true"] { background: var(--sel-bg); color: var(--sel-text); }
+  .seg button[data-mode="build"][aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+  footer { position: relative; }
+  .model-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; border: 0; background: transparent; color: var(--text2); font-size: 11px; padding: 0 4px 0 6px; border-radius: var(--r-sm); max-width: 150px; }
+  .model-btn:hover, .model-btn[aria-expanded="true"] { background: var(--bg-hover); color: var(--text); }
+  .model-btn .mn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-btn .ef { color: var(--text3); white-space: nowrap; }
+  .model-pop { position: absolute; right: 12px; bottom: calc(100% - 4px); width: min(320px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow-y: auto; z-index: 7;
+    background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--r-lg); box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 6px; }
+  .model-pop h3 { font-size: 11px; font-weight: 600; color: var(--text2); margin: 6px 6px 4px; }
+  .mrow { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; border: 0; background: none; text-align: left; padding: 6px 8px; border-radius: var(--r-md); }
+  .mrow:hover { background: var(--bg-hover); }
+  .mrow[aria-checked="true"] { background: var(--sel-bg); }
+  .mrow .n { font-weight: 600; }
+  .mrow .p { color: var(--text3); font-size: 11px; text-align: right; white-space: nowrap; }
+  .mrow .d { grid-column: 1 / span 2; color: var(--text2); font-size: 11px; line-height: 16px; }
+  .mcustom { display: flex; gap: 6px; padding: 6px 8px 2px; }
+  .mcustom input { flex: 1; min-width: 0; height: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 8px; background: var(--bg); font: 11px var(--mono); }
+  .mcustom input:focus { outline: none; border-color: var(--sel); }
+  .effort { display: flex; gap: 2px; padding: 0 6px; flex-wrap: wrap; }
+  .effort button { flex: 1; min-width: 44px; height: 26px; border: 1px solid var(--border); background: transparent; border-radius: var(--r-sm); font-size: 11px; color: var(--text2); }
+  .effort button:hover:not(:disabled) { color: var(--text); background: var(--bg-hover); }
+  .effort button[aria-checked="true"] { border-color: var(--sel); color: var(--sel-text); background: var(--sel-bg); font-weight: 600; }
+  .effort button:disabled { opacity: .35; }
+  .mhint { color: var(--text2); font-size: 11px; line-height: 16px; padding: 6px 8px 4px; }
+  .mnote { color: var(--warning); font-size: 11px; padding: 2px 8px; }
+  select.model {
+    height: 24px; border: 0; background: transparent; color: var(--text2); font-size: 11px; padding: 0 2px; border-radius: var(--r-sm);
+  }
+  select.model:hover { background: var(--bg-hover); color: var(--text); }
+  .send { height: 26px; padding: 0 10px; }
+
+  /* sheets (settings, history) */
+  .sheet { position: absolute; inset: 40px 0 0 0; background: var(--bg); z-index: 5; overflow-y: auto; display: none; flex-direction: column; }
+  .sheet.open { display: flex; }
+  .sheet .pad { padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; }
+  .sheet h2 { font-size: 13px; font-weight: 600; margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-weight: 500; }
+  .field .hint { color: var(--text2); font-size: 11px; line-height: 16px; }
+  .field input[type="text"], .field input[type="password"] { height: 30px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 8px; background: var(--bg); }
+  .field input:focus { outline: none; border-color: var(--sel); box-shadow: 0 0 0 1px var(--sel); }
+  .check { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); cursor: pointer; user-select: none; }
+  .check input { margin: 0; accent-color: var(--brand); }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .result { color: var(--text2); font-size: 11px; }
+
+  .conv-list { list-style: none; margin: 0; padding: 6px; }
+  .conv { display: flex; align-items: center; gap: 4px; border-radius: var(--r-md); }
+  .conv:hover { background: var(--bg-hover); }
+  .conv.current { background: var(--sel-bg); }
+  .conv .open { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 8px; border-radius: var(--r-md); }
+  .conv .t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv .m { display: block; color: var(--text3); font-size: 11px; }
+  .conv .del { opacity: 0; }
+  .conv:hover .del, .conv .del:focus-visible { opacity: 1; }
+  .conv .confirm { display: flex; gap: 4px; padding-right: 6px; }
+  .empty-list { color: var(--text2); padding: 16px 12px; }
+
+  /* actions */
+  .quick button.on { color: var(--sel-text); border-color: var(--sel); background: var(--sel-bg); }
+  .armed { display: flex; align-items: center; gap: 6px; padding: 8px 8px 0 10px; font-size: 11px; }
+  .armed .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 4px 0 8px; border-radius: 11px; background: var(--sel-bg); color: var(--sel-text); font-weight: 600; }
+  .armed .pill button { border: 0; background: none; color: inherit; width: 16px; height: 16px; padding: 0; border-radius: 50%; line-height: 16px; }
+  .armed .pill button:hover { background: var(--bg-hover); }
+  .armed select { height: 22px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); font-size: 11px; color: var(--text); }
+  .armed .hint { color: var(--text3); }
+  .seg.locked { opacity: .5; pointer-events: none; }
+
+  /* result cards */
+  .card { border: 1px solid var(--border); border-radius: var(--r-lg); margin-top: 8px; overflow: hidden; }
+  .card-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--bg2); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 11px; }
+  .card-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .card-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid var(--border); }
+  .card-actions .note { color: var(--text2); font-size: 11px; }
+  .warnline { font-size: 11px; color: var(--warning); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .opt { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; display: flex; flex-direction: column; }
+  .opt .img { aspect-ratio: 4 / 3; background: var(--bg2) center / contain no-repeat; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .opt .t { padding: 6px 8px 0; font-weight: 600; font-size: 11px; }
+  .opt .d { padding: 0 8px; color: var(--text2); font-size: 11px; line-height: 16px; }
+  .opt .a { padding: 6px 8px 8px; margin-top: auto; }
+  .opt.chosen { border-color: var(--sel); box-shadow: 0 0 0 1px var(--sel); }
+  .lint-sum { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--text2); }
+  .lint-sum b { color: var(--text); }
+  .sev { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+  .sev.error { background: var(--danger); } .sev.warn { background: var(--warning); } .sev.info { background: var(--text3); }
+  details.rule { border-top: 1px solid var(--border); padding-top: 6px; }
+  details.rule:first-of-type { border-top: 0; padding-top: 0; }
+  details.rule summary { cursor: pointer; font-size: 11px; list-style: none; display: flex; align-items: center; gap: 4px; }
+  details.rule summary::-webkit-details-marker { display: none; }
+  details.rule summary .n { color: var(--text3); margin-left: auto; }
+  .finding { display: flex; gap: 6px; align-items: baseline; font-size: 11px; line-height: 16px; padding: 3px 0 0 12px; }
+  .finding .ref { white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+  .finding span:last-child { color: var(--text2); }
+  .memline { display: flex; gap: 6px; align-items: baseline; font-size: 11px; color: var(--text2); margin: 4px 0 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--bg2); }
+  .memline svg { flex: none; color: var(--sel); position: relative; top: 2px; }
+  .mem-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-lg); }
+  .mem-item { display: flex; gap: 6px; align-items: flex-start; padding: 6px 6px 6px 10px; font-size: 11px; line-height: 16px; }
+  .mem-item + .mem-item { border-top: 1px solid var(--border); }
+  .mem-item span { flex: 1; }
+  .mem-item .scope { flex: none; color: var(--text3); }
+  .mem-empty { color: var(--text2); font-size: 11px; padding: 8px 10px; }
+  .mem-add { display: flex; gap: 6px; }
+  .mem-add input { flex: 1; height: 28px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 8px; background: var(--bg); font-size: 11px; }
+  .mem-add input:focus { outline: none; border-color: var(--sel); }
+  .mem-add select { height: 28px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); font-size: 11px; color: var(--text); }
+  .section-title { font-size: 11px; font-weight: 600; color: var(--text2); margin: 0 0 -6px; }
+  .conns { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-lg); }
+  .conn { display: grid; grid-template-columns: 28px 1fr auto; gap: 2px 10px; align-items: center; padding: 10px; }
+  .conn + .conn { border-top: 1px solid var(--border); }
+  .conn .ic { grid-row: span 2; width: 28px; height: 28px; border-radius: var(--r-md); background: var(--bg2); display: grid; place-items: center; color: var(--text2); align-self: start; }
+  .conn .nm { font-weight: 500; }
+  .conn .st { grid-column: 2; display: flex; align-items: center; gap: 6px; color: var(--text2); font-size: 11px; line-height: 16px; min-width: 0; }
+  .conn .st span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .conn .act { grid-row: 1 / span 2; grid-column: 3; display: flex; gap: 6px; align-self: start; }
+  .conn .job { grid-column: 2 / span 2; margin-top: 8px; padding: 8px; border-radius: var(--r-md); background: var(--bg2); display: flex; flex-direction: column; gap: 8px; font-size: 11px; line-height: 16px; }
+  .conn .job.failed { color: var(--danger); }
+  .conn .job .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .conn .job input { flex: 1; min-width: 120px; height: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 8px; background: var(--bg); font: 11px var(--mono); }
+  .conn .job input:focus { outline: none; border-color: var(--sel); }
+  .conns-note { color: var(--text2); font-size: 11px; line-height: 16px; }
+  .status { cursor: pointer; border-radius: var(--r-sm); }
+  .status:hover { background: var(--bg-hover); }
+  .toast { position: absolute; left: 12px; right: 12px; bottom: 150px; z-index: 6; background: var(--text); color: var(--bg); border-radius: var(--r-md); padding: 8px 10px; display: none; align-items: center; gap: 10px; font-size: 11px; }
+  .toast.show { display: flex; }
+  .toast span { flex: 1; }
+  .toast button { border: 0; background: none; color: inherit; font-weight: 600; text-decoration: underline; padding: 0; }
+
+  .grip { position: fixed; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; z-index: 10; }
+  .grip svg { position: absolute; right: 2px; bottom: 2px; color: var(--text3); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+  <header>
+    <button class="icon-btn" id="openHistory" aria-label="Conversations" title="Conversations">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h7"/></svg>
+    </button>
+    <button class="title" id="title" title="Conversations">New chat</button>
+    <span class="status" id="status"><span class="dot" id="statusDot"></span><span id="statusText"></span></span>
+    <button class="icon-btn" id="newChat" aria-label="New chat" title="New chat">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+    </button>
+    <button class="icon-btn" id="openSettings" aria-label="Settings" title="Settings">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6"/><circle cx="10" cy="4.5" r="1.5"/><circle cx="6" cy="11.5" r="1.5"/></svg>
+    </button>
+  </header>
+
+  <section class="target" id="target" aria-label="Layers Claude is pointing at">
+    <svg class="aim" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M7 0v3.5M7 10.5V14M0 7h3.5M10.5 7H14"/></svg>
+    <div class="chips" id="chips"></div>
+    <button class="btn keep" id="keep" aria-pressed="false" title="Keep these layers as the target while you click around the canvas">Keep target</button>
+  </section>
+
+  <main id="log" aria-live="polite"></main>
+
+  <footer>
+    <div class="quick" id="quick"></div>
+    <div class="composer" id="composer">
+      <div class="armed" id="armed" hidden></div>
+      <div class="pending-atts" id="pendingAtts" hidden></div>
+      <label class="sr" for="input">Message</label>
+      <textarea id="input" rows="2"></textarea>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Mode" title="Shift+Tab to switch">
+          <button data-mode="ask" aria-pressed="false" title="Ask: discuss and critique. No edits.">Ask</button>
+          <button data-mode="plan" aria-pressed="false" title="Plan: Claude proposes steps and waits for you. No edits.">Plan</button>
+          <button data-mode="build" aria-pressed="false" title="Build: Claude edits the file.">Build</button>
+        </div>
+        <button class="icon-btn" id="shot" aria-pressed="true" aria-label="Include a screenshot of the target" title="Include a screenshot of the target (sent once per target)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4.5" width="12" height="8.5" rx="1.5"/><circle cx="8" cy="8.75" r="2.25"/><path d="M5.5 4.5l1-1.5h3l1 1.5"/></svg>
+        </button>
+        <button class="icon-btn" id="attach" aria-label="Attach images" title="Attach images (or paste / drop them)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M10.5 5L6 9.5a1.25 1.25 0 001.8 1.8l4.6-4.6a2.5 2.5 0 00-3.6-3.6L4.2 7.7a3.75 3.75 0 005.3 5.3L13 9.5"/></svg>
+        </button>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <span class="spacer"></span>
+        <button class="model-btn" id="modelBtn" aria-haspopup="dialog" aria-expanded="false" title="Model and effort">
+          <span class="mn" id="modelName">Sonnet</span><span class="ef" id="effName"></span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2.5 6.5L5 4l2.5 2.5"/></svg>
+        </button>
+        <button class="icon-btn" id="copy" aria-label="Copy prompt for claude.ai" title="Copy links, request and layer details to paste into claude.ai">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h2"/></svg>
+        </button>
+        <button class="btn primary send" id="send">Send</button>
+      </div>
+    </div>
+    <div class="model-pop" id="modelPop" role="dialog" aria-label="Model and effort" hidden></div>
+  </footer>
+
+  <div class="sheet" id="history" role="dialog" aria-label="Conversations">
+    <ul class="conv-list" id="convList"></ul>
+  </div>
+
+  <div class="sheet" id="settings" role="dialog" aria-label="Settings">
+    <div class="pad">
+      <h2>Connections</h2>
+      <div class="conns" id="conns"></div>
+      <div class="conns-note" id="connsNote"></div>
+      <h2 style="margin-top:6px">Memory</h2>
+      <div class="conns-note">Notes Claude saves while building (or you add) are read at the start of every new conversation. Delete anything wrong.</div>
+      <div class="mem-list" id="memList"></div>
+      <div class="mem-add">
+        <input type="text" id="memInput" maxlength="300" placeholder="Add a note, e.g. Tables use spacing/x-small between cells">
+        <select id="memScope" aria-label="Scope"><option value="file">This file</option><option value="everywhere">All files</option></select>
+        <button class="btn sm" id="memAdd">Add</button>
+      </div>
+      <h2 style="margin-top:6px">Bridge</h2>
+      <div class="field">
+        <label for="sUrl">Bridge address</label>
+        <input type="text" id="sUrl" spellcheck="false">
+        <span class="hint">Where <code>npm start</code> is running. Changing the port also needs the plugin manifest updated.</span>
+      </div>
+      <div class="field">
+        <label for="sToken">Bridge token</label>
+        <input type="password" id="sToken" spellcheck="false" autocomplete="off">
+        <span class="hint">Printed when the bridge starts, and saved in <code>bridge/.bridge-token</code>.</span>
+      </div>
+      <div class="field">
+        <label for="sFile">This file’s link</label>
+        <input type="text" id="sFile" spellcheck="false" placeholder="https://www.figma.com/design/…">
+        <span class="hint" id="fileHint"></span>
+      </div>
+      <label class="check"><input type="checkbox" id="sDetails"> Include layer details in copied prompts</label>
+      <div class="actions">
+        <button class="btn primary" id="saveSettings">Save</button>
+        <button class="btn" id="testConn">Check connection</button>
+        <button class="btn" id="closeSettings">Close</button>
+      </div>
+      <div class="result" id="testResult"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastAction"></button></div>
+  <div class="grip" id="grip" aria-hidden="true"><svg width="8" height="8" viewBox="0 0 8 8" stroke="currentColor"><path d="M7 1L1 7M7 4L4 7"/></svg></div>
+
+<script>
+(() => {
+  // The action row above the input. Each action fixes the mode on the
+  // bridge too, so Review and Handoff can never edit the file.
+  const ACTIONS_UI = {
+    explore: { label: 'Explore options', mode: 'build', title: (o) => `Explore ${o.count} options`, hint: 'Optional: what should the options explore?', needsTarget: true },
+    review: { label: 'Review', mode: 'ask', title: () => 'Review this design', hint: 'Optional: anything to focus on?' },
+    handoff: { label: 'Handoff spec', mode: 'ask', title: () => 'Write the handoff spec', hint: 'Optional: who is it for, anything to stress?', needsTarget: true },
+    copy: { label: 'Copy pass', mode: 'build', title: () => 'Copy pass', hint: 'Optional: tone or length, e.g. shorter, friendlier', needsTarget: true },
+    data: { label: 'Realistic data', mode: 'build', title: () => 'Fill with realistic data', hint: 'Optional: domain or specifics', needsTarget: true },
+  };
+  const INSERT_CHIPS = [{ label: 'From Jira ticket', text: 'Build this from Jira ticket ' }];
+  const RULE_NAMES = {
+    'missing-font': 'Missing fonts', contrast: 'Contrast', 'raw-color': 'Colors not using variables', 'text-style': 'Text without a text style',
+    spacing: 'Spacing', radius: 'Corner radius', naming: 'Default layer names', hidden: 'Hidden layers', empty: 'Empty frames',
+  };
+  const SAFE_RULES = new Set(['raw-color', 'text-style', 'spacing', 'radius', 'naming']);
+
+  const TOOL_LABELS = {
+    use_figma: 'Editing the file', get_screenshot: 'Taking a screenshot', get_metadata: 'Reading layer structure',
+    get_design_context: 'Reading design context', get_variable_defs: 'Reading variables',
+    search_design_system: 'Searching the design system', get_figma_skill: 'Loading Figma guidance',
+    get_libraries: 'Checking libraries', getJiraIssue: 'Reading the Jira ticket', searchJiraIssuesUsingJql: 'Searching Jira',
+    getJiraIssueRemoteIssueLinks: 'Reading the ticket links', getConfluencePage: 'Reading the Confluence page',
+    searchConfluenceUsingCql: 'Searching Confluence', getConfluencePageFooterComments: 'Reading page comments',
+    getConfluencePageInlineComments: 'Reading page comments', getAccessibleAtlassianResources: 'Finding your Atlassian site',
+    search: 'Searching Jira and Confluence', fetch: 'Reading from Atlassian', ToolSearch: 'Finding tools',
+    WaitForMcpServers: 'Waiting for Figma to connect',
+  };
+  const MODE_NAME = { ask: 'Ask', plan: 'Plan', build: 'Build' };
+  // Shown until the bridge reports the real list for your account.
+  const FALLBACK_MODELS = [
+    { value: 'sonnet', name: 'Sonnet', description: 'Efficient for routine tasks', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+    { value: 'opus', name: 'Opus', description: 'Best for everyday, complex tasks', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+    { value: 'haiku', name: 'Haiku', description: 'Fastest for quick answers', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  ];
+  const EFFORT_LABEL = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' };
+  const MODEL_ID_RE = /^claude-[a-z0-9][a-z0-9.-]{2,60}$/;
+  // "Opus 5.5 · Best for everyday, complex tasks · $4/$20 per Mtok" → parts
+  function modelParts(m) {
+    const bits = String(m.description || '').split(/\s+·\s+/);
+    const versioned = bits[0] && /\d/.test(bits[0]) && bits.length > 1 ? bits.shift() : null;
+    const price = bits.length && /\$/.test(bits[bits.length - 1]) ? bits.pop().replace(/ per Mtok.*$/, '') : '';
+    let name = versioned || m.name;
+    if (m.value === 'default') name = `Default${versioned ? ` (${versioned.replace(/^Use the default model \(currently |\)$/g, '')})` : ''}`;
+    const tag = bits.join(' · ').replace(/^Use the default model.*$/, 'Whatever Claude Code currently recommends');
+    return { name, tag, price };
+  }
+  function modelLabel(value) {
+    if (!value) return 'Sonnet';
+    const m = state.models.find((x) => x.value === value);
+    if (m) return modelParts(m).name.replace(/^Default \((.*)\)$/, '$1');
+    return value.replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2').replace(/-(\d+)$/, ' $1').replace(/^\w/, (c) => c.toUpperCase());
+  }
+  const MODEL_NAME = new Proxy({}, { get: (_, k) => modelLabel(k) });
+  const PLACEHOLDER = {
+    ask: 'Ask about this design. Claude won’t edit anything.',
+    plan: 'Describe what you want. Claude plans it, you approve.',
+    build: 'Describe the change. Claude edits the file.',
+  };
+  const WORKING = { ask: 'Thinking', plan: 'Planning', build: 'Working' };
+  const MAX_CONVS = 30;
+  const MAX_ATTS = 4;
+
+  const OPTIONS_RE = /```options\s*([\s\S]*?)```/;
+  const ID_RE = /^I?\d+:\d+(?:;\d+:\d+)*$/;
+  const ID_RE_G = /`(I?\d+:\d+(?:;\d+:\d+)*)`/g;
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const post = (msg) => parent.postMessage({ pluginMessage: msg }, '*');
+  const typeLabel = (t) => (t || '').toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+  const kfmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // ---------- state ----------
+  const state = {
+    file: null,
+    settings: { url: 'http://localhost:4545', token: '', screenshot: true, details: true, mode: 'plan', model: 'sonnet' },
+    convs: [], // index: [{id,title,updated,sessionId,model,sent}]
+    conv: null, // current index entry
+    transcript: [],
+    selection: [],
+    selectionPage: '',
+    kept: null,
+    running: null,
+    health: 'unknown',
+    atts: [], // [{data, mediaType, url}]
+    action: null,
+    actionCount: 3,
+    models: FALLBACK_MODELS,
+    model: 'sonnet',
+    effort: null, // null = the model's default
+  };
+  const pending = new Map();
+  let reqSeq = 0;
+  const target = () => state.kept || state.selection;
+  const storageKey = () => (state.file && state.file.storageKey) || 'nofile';
+
+  function askCode(type, payload, reply) {
+    const requestId = ++reqSeq;
+    return new Promise((resolve, reject) => {
+      pending.set(requestId, { resolve, reject });
+      post({ type, requestId, ...payload });
+      setTimeout(() => {
+        if (pending.has(requestId)) { pending.delete(requestId); reject(new Error('Figma did not respond.')); }
+      }, 20000);
+    });
+  }
+
+  // ---------- messages from code.js ----------
+  window.onmessage = (e) => {
+    const msg = e.data && e.data.pluginMessage;
+    if (!msg) return;
+    switch (msg.type) {
+      case 'init': onInit(msg); break;
+      case 'file': state.file = msg.file; renderLog(); break;
+      case 'selection':
+        state.selection = msg.items;
+        state.selectionPage = msg.page;
+        renderTarget();
+        break;
+      case 'context': case 'loaded': case 'reply': case 'plugin-error': {
+        const p = pending.get(msg.requestId);
+        if (p) {
+          pending.delete(msg.requestId);
+          if (msg.type === 'plugin-error') p.reject(new Error(msg.message));
+          else p.resolve(msg.type === 'reply' ? msg.value : msg);
+        }
+        break;
+      }
+      case 'changes': onChanges(msg); break;
+    }
+  };
+
+  async function onInit(msg) {
+    state.file = msg.file;
+    Object.assign(state.settings, msg.settings || {});
+    state.convs = Array.isArray(msg.conversations) ? msg.conversations : [];
+    if (msg.legacy) {
+      // Bring over the single conversation from the earlier version.
+      const c = { id: uid(), title: titleFrom(msg.legacy.transcript), updated: Date.now(), sessionId: msg.legacy.sessionId, model: state.settings.model, sent: [] };
+      state.convs.unshift(c);
+      post({ type: 'store', key: `t:${storageKey()}:${c.id}`, value: msg.legacy.transcript });
+      post({ type: 'store', key: `c:${storageKey()}`, value: state.convs });
+      post({ type: 'remove', key: `t:${storageKey()}` });
+      post({ type: 'remove', key: `s:${storageKey()}` });
+    }
+    state.settings.mode = state.settings.mode || 'plan';
+    paintMode();
+    state.model = state.settings.model || 'sonnet';
+    state.effort = state.settings.effort || null;
+    paintModel();
+    $('shot').setAttribute('aria-pressed', String(state.settings.screenshot !== false));
+    if (state.convs.length) await openConv(state.convs[0].id);
+    else newConv();
+    if ((await checkHealth()) === 'ready') { loadConnections(false); loadModels(); }
+  }
+
+  // ---------- conversations ----------
+  function titleFrom(transcript) {
+    const first = (transcript || []).find((e) => e.role === 'user');
+    const t = first ? first.text.replace(/\s+/g, ' ').trim() : 'New chat';
+    return t.length > 48 ? t.slice(0, 47) + '…' : t || 'New chat';
+  }
+  function newConv() {
+    if (state.running) return;
+    state.conv = { id: uid(), title: 'New chat', updated: Date.now(), sessionId: null, model: state.model, effort: state.effort, sent: [] };
+    state.transcript = [];
+    renderTitle();
+    renderLog();
+    closeSheets();
+    $('input').focus();
+  }
+  async function openConv(id) {
+    if (state.running) return;
+    const c = state.convs.find((x) => x.id === id);
+    if (!c) return;
+    let t = [];
+    try { t = (await askCode('load', { key: `t:${storageKey()}:${id}` })).value || []; } catch (e) {}
+    state.conv = c;
+    state.transcript = t;
+    if (c.model) { state.model = c.model; state.effort = c.effort || null; paintModel(); }
+    renderTitle();
+    renderLog();
+    closeSheets();
+  }
+  function saveConv() {
+    const c = state.conv;
+    if (!c || !state.transcript.length) return;
+    c.updated = Date.now();
+    if (c.title === 'New chat') c.title = titleFrom(state.transcript);
+    state.convs = [c, ...state.convs.filter((x) => x.id !== c.id)];
+    for (const old of state.convs.slice(MAX_CONVS)) post({ type: 'remove', key: `t:${storageKey()}:${old.id}` });
+    state.convs = state.convs.slice(0, MAX_CONVS);
+    const keepPics = new Set(state.transcript.filter((e) => e.role === 'assistant' && e.options).slice(-6));
+    const trimmed = state.transcript.slice(-80).map((e) => {
+      if (e.role !== 'assistant') return e;
+      if (!keepPics.has(e)) {
+        e = { ...e, before: undefined, after: undefined }; // older saved conversations may still carry these
+        if (e.options) e.options = e.options.map((o) => ({ ...o, thumb: undefined }));
+      }
+      return { ...e, blocks: (e.blocks || []).map((b) => (b.k === 'steps' ? { k: 'steps', items: b.items.map((s) => ({ name: s.name, summary: s.summary, state: s.state === 'run' ? 'fail' : s.state })) } : b)) };
+    });
+    post({ type: 'store', key: `t:${storageKey()}:${c.id}`, value: trimmed });
+    post({ type: 'store', key: `c:${storageKey()}`, value: state.convs });
+    renderTitle();
+  }
+  function deleteConv(id) {
+    state.convs = state.convs.filter((x) => x.id !== id);
+    post({ type: 'remove', key: `t:${storageKey()}:${id}` });
+    post({ type: 'store', key: `c:${storageKey()}`, value: state.convs });
+    if (state.conv && state.conv.id === id) { newConv(); openHistory(); }
+    else renderHistory();
+  }
+  function renderTitle() { $('title').textContent = (state.conv && state.conv.title) || 'New chat'; }
+
+  function ago(ts) {
+    const s = Math.round((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  function renderHistory() {
+    const list = $('convList');
+    list.textContent = '';
+    if (!state.convs.length) {
+      list.appendChild(el('li', 'empty-list', 'No conversations for this file yet.'));
+      return;
+    }
+    for (const c of state.convs) {
+      const li = el('li', 'conv' + (state.conv && state.conv.id === c.id ? ' current' : ''));
+      const open = el('button', 'open');
+      open.appendChild(el('span', 't', c.title));
+      open.appendChild(el('span', 'm', `${ago(c.updated)}${c.model ? `, ${MODEL_NAME[c.model] || c.model}` : ''}`));
+      open.onclick = () => openConv(c.id);
+      li.appendChild(open);
+      const del = el('button', 'icon-btn del');
+      del.setAttribute('aria-label', `Delete ${c.title}`);
+      del.title = 'Delete';
+      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2.5 4h9M5.5 4V2.5h3V4M3.5 4l.5 7.5h6l.5-7.5"/></svg>';
+      del.onclick = () => {
+        del.replaceWith((() => {
+          const box = el('span', 'confirm');
+          const yes = el('button', 'btn sm', 'Delete');
+          yes.style.color = 'var(--danger)';
+          yes.onclick = () => deleteConv(c.id);
+          const no = el('button', 'btn sm', 'Keep');
+          no.onclick = renderHistory;
+          box.append(yes, no);
+          setTimeout(() => yes.focus(), 0);
+          return box;
+        })());
+      };
+      li.appendChild(del);
+      list.appendChild(li);
+    }
+  }
+  function openHistory() { closeSheets(); renderHistory(); $('history').classList.add('open'); }
+  function closeSheets() { $('history').classList.remove('open'); $('settings').classList.remove('open'); }
+  $('openHistory').onclick = () => ($('history').classList.contains('open') ? closeSheets() : openHistory());
+  $('title').onclick = $('openHistory').onclick;
+  $('newChat').onclick = newConv;
+
+  // ---------- modes ----------
+  function setMode(mode, persist = true) {
+    if (state.action) disarm();
+    state.settings.mode = mode;
+    paintMode();
+    if (persist) post({ type: 'store', key: 'settings', value: state.settings });
+  }
+  function paintMode() {
+    const a = state.action && ACTIONS_UI[state.action];
+    const shown = a ? a.mode : state.settings.mode;
+    for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', String(b.dataset.mode === shown));
+    document.querySelector('.seg').classList.toggle('locked', !!a);
+    $('input').placeholder = a ? a.hint : PLACEHOLDER[state.settings.mode];
+    for (const b of document.querySelectorAll('#quick button[data-action]')) b.classList.toggle('on', b.dataset.action === state.action);
+    const box = $('armed');
+    box.textContent = '';
+    box.hidden = !a;
+    if (!a) return;
+    const pill = el('span', 'pill', a.label);
+    const x = el('button', null, '×');
+    x.setAttribute('aria-label', `Cancel ${a.label}`);
+    x.onclick = () => { disarm(); $('input').focus(); };
+    pill.appendChild(x);
+    box.appendChild(pill);
+    if (state.action === 'explore') {
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', 'How many options');
+      for (const n of [2, 3, 4]) { const o = document.createElement('option'); o.value = n; o.textContent = `${n} options`; if (n === state.actionCount) o.selected = true; sel.appendChild(o); }
+      sel.onchange = () => { state.actionCount = Number(sel.value); };
+      box.appendChild(sel);
+    }
+    box.appendChild(el('span', 'hint', a.mode === 'build' ? 'Edits the file; you can revert.' : 'Read-only.'));
+  }
+  function arm(action) {
+    state.action = state.action === action ? null : action;
+    paintMode();
+    $('input').focus();
+  }
+  function disarm() { state.action = null; paintMode(); }
+  for (const b of document.querySelectorAll('.seg button')) b.onclick = () => { setMode(b.dataset.mode); $('input').focus(); };
+  // ---------- model and effort picker ----------
+  async function loadModels(force) {
+    try {
+      const res = await fetch(`${baseUrl()}/models${force ? '?refresh=1' : ''}`, { headers: headers() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.models) && data.models.length) state.models = data.models;
+      paintModel();
+      if (!$('modelPop').hidden) renderModelPop();
+    } catch (e) {}
+  }
+  function currentModelInfo() { return state.models.find((m) => m.value === state.model) || null; }
+  function supportedEfforts() {
+    const m = currentModelInfo();
+    return m ? m.efforts || [] : ['low', 'medium', 'high', 'xhigh', 'max'];
+  }
+  function paintModel() {
+    // An effort the chosen model doesn't take falls back to its default.
+    if (state.effort && !supportedEfforts().includes(state.effort)) state.effort = null;
+    $('modelName').textContent = modelLabel(state.model);
+    $('effName').textContent = state.effort ? EFFORT_LABEL[state.effort] : '';
+    $('modelBtn').title = `Model: ${modelLabel(state.model)}. Effort: ${state.effort ? EFFORT_LABEL[state.effort] : 'model default'}.`;
+  }
+  function chooseModel(value, effort) {
+    state.model = value;
+    if (effort !== undefined) state.effort = effort;
+    paintModel();
+    state.settings.model = state.model;
+    state.settings.effort = state.effort;
+    if (state.conv) { state.conv.model = state.model; state.conv.effort = state.effort; }
+    post({ type: 'store', key: 'settings', value: state.settings });
+    renderModelPop();
+  }
+  function renderModelPop() {
+    const pop = $('modelPop');
+    pop.textContent = '';
+    pop.appendChild(el('h3', null, 'Model'));
+    const group = el('div');
+    group.setAttribute('role', 'radiogroup');
+    for (const m of state.models) {
+      const { name, tag, price } = modelParts(m);
+      const b = el('button', 'mrow');
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(m.value === state.model));
+      b.append(el('span', 'n', name), el('span', 'p', price));
+      if (tag) b.appendChild(el('span', 'd', tag));
+      b.onclick = () => chooseModel(m.value);
+      group.appendChild(b);
+    }
+    pop.appendChild(group);
+    const isCustom = !state.models.some((m) => m.value === state.model);
+    const cust = el('div', 'mcustom');
+    const inp = document.createElement('input');
+    inp.placeholder = 'Other model ID, e.g. claude-sonnet-5';
+    inp.setAttribute('aria-label', 'Other model ID');
+    inp.spellcheck = false;
+    if (isCustom) inp.value = state.model;
+    const use = el('button', 'btn sm', 'Use');
+    const apply = () => {
+      const v = inp.value.trim().toLowerCase();
+      if (!MODEL_ID_RE.test(v)) { toast('Use a full model ID starting with claude-, like claude-sonnet-5-5.'); return; }
+      chooseModel(v);
+    };
+    use.onclick = apply;
+    inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } };
+    cust.append(inp, use);
+    pop.appendChild(cust);
+    if (isCustom) pop.appendChild(el('div', 'mnote', 'Using a model ID you entered. If your account can’t use it, the reply will say so.'));
+
+    pop.appendChild(el('h3', null, 'Effort'));
+    const eff = el('div', 'effort');
+    eff.setAttribute('role', 'radiogroup');
+    const supported = supportedEfforts();
+    const opts = [[null, 'Auto'], ...['low', 'medium', 'high', 'xhigh', 'max'].map((k) => [k, EFFORT_LABEL[k]])];
+    for (const [k, label] of opts) {
+      const b = el('button', null, label);
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(state.effort === k));
+      b.disabled = k !== null && !supported.includes(k);
+      b.title = k === null ? 'The model’s own default' : b.disabled ? 'This model doesn’t support this level' : '';
+      b.onclick = () => chooseModel(state.model, k);
+      eff.appendChild(b);
+    }
+    pop.appendChild(eff);
+    pop.appendChild(el('div', 'mhint', 'Higher effort thinks longer before acting: better on multi-step builds and tricky layouts, slower and uses more tokens. Low is fine for questions and copy.'));
+    const refresh = el('button', 'link-btn', 'Refresh list');
+    refresh.style.margin = '0 8px 6px';
+    refresh.style.fontSize = '11px';
+    refresh.onclick = async () => { refresh.textContent = 'Refreshing…'; refresh.disabled = true; await loadModels(true); };
+    pop.appendChild(refresh);
+  }
+  function toggleModelPop(open) {
+    const pop = $('modelPop');
+    const show = open !== undefined ? open : pop.hidden;
+    pop.hidden = !show;
+    $('modelBtn').setAttribute('aria-expanded', String(show));
+    if (show) { renderModelPop(); loadModels(); const sel = pop.querySelector('[aria-checked="true"]'); (sel || pop.querySelector('button')).focus(); }
+  }
+  $('modelBtn').onclick = () => toggleModelPop();
+  document.addEventListener('mousedown', (e) => {
+    if (!$('modelPop').hidden && !e.target.closest('#modelPop') && !e.target.closest('#modelBtn')) toggleModelPop(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('modelPop').hidden) { toggleModelPop(false); $('modelBtn').focus(); }
+  });
+  $('shot').onclick = () => {
+    const on = $('shot').getAttribute('aria-pressed') !== 'true';
+    $('shot').setAttribute('aria-pressed', String(on));
+    state.settings.screenshot = on;
+    post({ type: 'store', key: 'settings', value: state.settings });
+  };
+
+  // ---------- target strip ----------
+  function renderTarget() {
+    const chips = $('chips');
+    chips.textContent = '';
+    const items = target();
+    $('target').classList.toggle('kept', !!state.kept);
+    $('keep').setAttribute('aria-pressed', String(!!state.kept));
+    $('keep').textContent = state.kept ? 'Kept' : 'Keep target';
+    $('keep').hidden = !state.kept && !items.length;
+    if (!items.length) {
+      const page = state.selectionPage ? `the page “${state.selectionPage}”` : 'this page';
+      chips.appendChild(el('div', 'empty', `Nothing selected. Claude will look at ${page}.`));
+      return;
+    }
+    for (const it of items) {
+      const b = el('button', 'chip');
+      b.title = `Show ${it.name} on the canvas`;
+      if (it.thumb) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = `data:image/png;base64,${it.thumb}`;
+        b.appendChild(img);
+      } else b.appendChild(el('span', 'ph'));
+      b.appendChild(el('span', 'nm', it.name));
+      b.appendChild(el('span', 'ty', typeLabel(it.type)));
+      b.onclick = () => post({ type: 'focus', ids: [it.id] });
+      chips.appendChild(b);
+    }
+  }
+  $('keep').onclick = () => { state.kept = state.kept ? null : state.selection.slice(); renderTarget(); };
+
+  // ---------- markdown ----------
+  function inline(text) {
+    return String(text).split(/(`[^`\n]+`)/g).map((part) => {
+      if (/^`[^`]+`$/.test(part)) {
+        const code = part.slice(1, -1);
+        return ID_RE.test(code)
+          ? `<button class="nodeid" data-id="${esc(code)}" title="Show on canvas">${esc(code)}</button>`
+          : `<code>${esc(code)}</code>`;
+      }
+      let s = esc(part);
+      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => `<a href="#" data-href="${u}">${t}</a>`);
+      s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+      return s;
+    }).join('');
+  }
+  const RE = {
+    fence: /^\s*```/, h: /^\s{0,3}#{1,6}\s+/, ul: /^\s*[-*•]\s+/, ol: /^\s*\d+[.)]\s+/, tr: /^\s*\|.*\|\s*$/, sep: /^\s*\|?\s*:?-{2,}/,
+  };
+  const special = (l) => RE.fence.test(l) || RE.h.test(l) || RE.ul.test(l) || RE.ol.test(l) || RE.tr.test(l);
+  function md(src) {
+    const lines = String(src).replace(/\r/g, '').split('\n');
+    let out = '', i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (RE.fence.test(l)) {
+        const buf = []; i++;
+        while (i < lines.length && !RE.fence.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        out += `<pre><code>${esc(buf.join('\n'))}</code></pre>`;
+      } else if (RE.h.test(l)) {
+        out += `<p class="h">${inline(l.replace(RE.h, ''))}</p>`; i++;
+      } else if (RE.ul.test(l) || RE.ol.test(l)) {
+        const ordered = RE.ol.test(l);
+        const re = ordered ? RE.ol : RE.ul;
+        const start = ordered ? parseInt(l, 10) : 1;
+        out += ordered ? `<ol${start > 1 ? ` start="${start}"` : ''}>` : '<ul>';
+        while (i < lines.length && re.test(lines[i])) {
+          let item = lines[i++].replace(re, '');
+          while (i < lines.length && lines[i].trim() && /^\s{2,}/.test(lines[i]) && !special(lines[i])) item += '<br>' + lines[i++].trim();
+          out += `<li>${inline(item).replace(/&lt;br&gt;/g, '<br>')}</li>`;
+        }
+        out += ordered ? '</ol>' : '</ul>';
+      } else if (RE.tr.test(l)) {
+        const rows = [];
+        while (i < lines.length && RE.tr.test(lines[i])) {
+          if (!RE.sep.test(lines[i])) rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()));
+          i++;
+        }
+        out += '<div class="tbl"><table>' + rows.map((r, ri) => `<tr>${r.map((c) => (ri === 0 ? `<th>${inline(c)}</th>` : `<td>${inline(c)}</td>`)).join('')}</tr>`).join('') + '</table></div>';
+      } else if (!l.trim()) {
+        i++;
+      } else {
+        const buf = [l]; i++;
+        while (i < lines.length && lines[i].trim() && !special(lines[i])) buf.push(lines[i++]);
+        out += `<p>${buf.map(inline).join('<br>')}</p>`;
+      }
+    }
+    return out;
+  }
+
+  // ---------- rendering messages ----------
+  function stepLabel(name) {
+    const short = name.startsWith('mcp__') ? name.split('__').slice(2).join('__') : name;
+    return TOOL_LABELS[short] || short.replace(/_/g, ' ');
+  }
+
+  function bgImg(b64) { return b64 ? `url(data:image/png;base64,${b64})` : ''; }
+
+  // Revert and Keep under every Build, in one row.
+  function renderBuildCard(entry) {
+    if (entry.mode !== 'build' || !entry.footer || entry.footer.stopped && !entry.changes) return null;
+    if (entry.action === 'explore' && entry.options && entry.options.length) return null;
+    const touched = (entry.changes || []).length;
+    if (!touched && !entry.reverted) return null;
+    const card = el('div', 'card');
+    const act = el('div', 'card-actions');
+    act.style.borderTop = '0';
+    if (entry.reverted) act.appendChild(el('span', 'note', 'Reverted. The file is back to how it was before this build.'));
+    else {
+      const sel = el('button', 'btn sm', `Select ${touched} changed layer${touched === 1 ? '' : 's'}`);
+      sel.onclick = () => post({ type: 'focus', ids: entry.changes.map((c) => c.id) });
+      act.appendChild(sel);
+      if (entry.kept) act.appendChild(el('span', 'note', 'Kept.'));
+      else if (entry.revert && entry.revert.available) {
+        const rv = el('button', 'btn sm', 'Revert');
+        rv.title = 'Put the target back the way it was and remove layers Claude added';
+        const kp = el('button', 'btn sm', 'Keep');
+        kp.title = 'Keep the change and delete the snapshot';
+        rv.onclick = () => { kp.disabled = true; runBusy(rv, 'Reverting…', () => revertEntry(entry)); };
+        kp.onclick = () => { rv.disabled = true; runBusy(kp, 'Keeping…', () => keepEntry(entry)); };
+        act.append(rv, kp);
+      } else act.appendChild(el('span', 'note', 'No snapshot for this build; use version history to roll back.'));
+    }
+    card.appendChild(act);
+    const notes = [];
+    if (entry.outside && entry.outside.length && !entry.reverted) notes.push(`Also changed outside the target, which Revert can’t undo: ${entry.outside.map((o) => o.name).join(', ')}.`);
+    if (entry.revert && entry.revert.note && !entry.reverted) notes.push(entry.revert.note);
+    if (notes.length) {
+      const body = el('div', 'card-body');
+      body.style.paddingTop = '0';
+      for (const n of notes) body.appendChild(el('div', 'warnline', n));
+      card.appendChild(body);
+    }
+    return card;
+  }
+
+  function renderOptions(entry) {
+    if (entry.action !== 'explore' || !entry.options || !entry.options.length) return null;
+    const card = el('div', 'card');
+    card.appendChild(el('div', 'card-head', entry.chosen ? 'Option chosen' : entry.reverted ? 'Options removed' : `${entry.options.length} options`));
+    const body = el('div', 'card-body');
+    const grid = el('div', 'opts');
+    for (const o of entry.options) {
+      const c = el('div', 'opt' + (entry.chosen === o.id ? ' chosen' : ''));
+      const im = el('div', 'img');
+      im.style.backgroundImage = bgImg(o.thumb);
+      im.title = 'Show on canvas';
+      im.onclick = () => post({ type: 'focus', ids: [o.id] });
+      c.appendChild(im);
+      c.appendChild(el('div', 't', `Option ${o.label}`));
+      c.appendChild(el('div', 'd', o.title || o.name));
+      const a = el('div', 'a');
+      if (!entry.chosen && !entry.reverted) {
+        const use = el('button', 'btn sm primary', 'Use this');
+        use.title = 'Replace the original with this option and delete the others (Cmd+Z undoes it)';
+        use.onclick = () => {
+          for (const b of document.querySelectorAll('.opt .a button')) if (b !== use) b.disabled = true;
+          runBusy(use, 'Applying…', () => useOption(entry, o));
+        };
+        a.appendChild(use);
+      } else if (entry.chosen === o.id) a.appendChild(el('span', 'note', 'In place of the original'));
+      c.appendChild(a);
+      grid.appendChild(c);
+    }
+    body.appendChild(grid);
+    card.appendChild(body);
+    if (!entry.chosen && !entry.reverted) {
+      const act = el('div', 'card-actions');
+      const keepAll = el('button', 'btn sm', 'Keep all');
+      const rv = el('button', 'btn sm', 'Remove all options');
+      keepAll.onclick = () => { rv.disabled = true; runBusy(keepAll, 'Keeping…', () => keepEntry(entry)); };
+      rv.onclick = () => { keepAll.disabled = true; runBusy(rv, 'Removing…', () => revertEntry(entry)); };
+      if (entry.kept) act.appendChild(el('span', 'note', 'All options kept next to the original.'));
+      else act.append(keepAll, rv);
+      card.appendChild(act);
+    }
+    return card;
+  }
+
+  function renderLint(entry) {
+    const l = entry.lint;
+    if (!l) return null;
+    const card = el('div', 'card');
+    card.appendChild(el('div', 'card-head', `Checks: ${l.findings.length ? `${l.findings.length} finding${l.findings.length === 1 ? '' : 's'}` : 'nothing found'} in ${l.scanned} layers${l.truncated ? ' (stopped early)' : ''}`));
+    const body = el('div', 'card-body');
+    const bySev = { error: 0, warn: 0, info: 0 };
+    for (const f of l.findings) bySev[f.sev]++;
+    const sum = el('div', 'lint-sum');
+    sum.innerHTML = `<span><i class="sev error"></i><b>${bySev.error}</b> must fix</span><span><i class="sev warn"></i><b>${bySev.warn}</b> should fix</span><span><i class="sev info"></i><b>${bySev.info}</b> tidy-ups</span>`;
+    body.appendChild(sum);
+    const groups = {};
+    for (const f of l.findings) (groups[f.rule] = groups[f.rule] || []).push(f);
+    const order = Object.keys(groups).sort((a, b) => ['error', 'warn', 'info'].indexOf(groups[a][0].sev) - ['error', 'warn', 'info'].indexOf(groups[b][0].sev));
+    for (const rule of order) {
+      const d = document.createElement('details');
+      d.className = 'rule';
+      if (groups[rule][0].sev === 'error') d.open = true;
+      const sm = document.createElement('summary');
+      sm.innerHTML = `<i class="sev ${groups[rule][0].sev}"></i>${esc(RULE_NAMES[rule] || rule)}<span class="n">${groups[rule].length}</span>`;
+      d.appendChild(sm);
+      for (const f of groups[rule].slice(0, 40)) {
+        const row = el('div', 'finding');
+        const ref = el('button', 'ref', f.name);
+        ref.title = 'Show on canvas';
+        ref.onclick = () => post({ type: 'focus', ids: [f.id] });
+        row.append(ref, el('span', null, f.msg));
+        d.appendChild(row);
+      }
+      body.appendChild(d);
+    }
+    card.appendChild(body);
+    const fixable = l.findings.filter((f) => SAFE_RULES.has(f.rule));
+    if (fixable.length && entry.followed !== 'review-fix') {
+      const act = el('div', 'card-actions');
+      const fx = el('button', 'btn sm primary', `Fix ${fixable.length} safe issue${fixable.length === 1 ? '' : 's'}`);
+      fx.title = 'Claude binds raw values to matching variables and styles, snaps spacing, renames default layers. You can revert.';
+      fx.disabled = !!state.running;
+      fx.onclick = () => { setBusy(fx, 'Starting…'); send({ text: 'Fix the safe issues from the checks.', action: 'review-fix', mode: 'build', targets: entry.targets || [], fix: fixable.slice(0, 80), from: entry }); };
+      act.append(fx, el('span', 'note', 'Bindings, spacing, names. Contrast and missing fonts need you.'));
+      card.appendChild(act);
+    }
+    return card;
+  }
+
+  function renderHandoffActions(entry) {
+    if (entry.action !== 'handoff' || !entry.footer || !entry.footer.ok || entry.followed === 'handoff-place') return null;
+    const act = el('div', 'card-actions');
+    act.style.border = '0';
+    act.style.padding = '8px 0 0';
+    const place = el('button', 'btn sm', 'Place in file');
+    place.title = 'Claude adds the spec as a frame next to the target. You can revert.';
+    place.disabled = !!state.running;
+    place.onclick = () => { setBusy(place, 'Starting…'); send({ text: 'Place the spec in the file.', action: 'handoff-place', mode: 'build', targets: entry.targets || [], from: entry }); };
+    act.appendChild(place);
+    return act;
+  }
+
+  function renderUser(entry) {
+    const box = el('div', 'msg user');
+    box.appendChild(el('div', 'body', entry.text));
+    if (entry.attCount) {
+      const a = el('div', 'atts');
+      a.appendChild(el('span', null, `${entry.attCount} image${entry.attCount === 1 ? '' : 's'} attached`));
+      box.appendChild(a);
+    }
+    const on = el('div', 'on');
+    on.appendChild(el('span', `mode-tag ${entry.mode || 'build'}`, entry.action && ACTIONS_UI[entry.action] ? ACTIONS_UI[entry.action].label : MODE_NAME[entry.mode || 'build']));
+    if (entry.targets && entry.targets.length) {
+      on.appendChild(el('span', null, 'on'));
+      entry.targets.forEach((t, i) => {
+        const b = el('button', 'ref', t.name + (i < entry.targets.length - 1 ? ',' : ''));
+        b.title = 'Show on canvas';
+        b.onclick = () => post({ type: 'focus', ids: [t.id] });
+        on.appendChild(b);
+      });
+    } else if (entry.page) {
+      on.appendChild(el('span', null, `on the page “${entry.page}”`));
+    }
+    box.appendChild(on);
+    return box;
+  }
+
+  function renderBlocks(entry, live) {
+    const frag = document.createDocumentFragment();
+    const blocks = entry.blocks || [];
+    if (!blocks.some((b) => b.k === 'text' || b.k === 'steps') && live) {
+      const t = el('div', 'thinking');
+      t.appendChild(el('span', 'si run'));
+      t.appendChild(el('span', null, entry.action === 'review' ? 'Reviewing' : entry.action === 'explore' ? 'Exploring' : WORKING[entry.mode] || 'Working'));
+      frag.appendChild(t);
+    }
+    for (const b of blocks) {
+      if (b.k === 'text') {
+        const t = el('div', 'md');
+        t.innerHTML = md(entry.action === 'explore' ? b.text.replace(OPTIONS_RE, '').replace(/```options[\s\S]*$/, '') : b.text);
+        frag.appendChild(t);
+      } else if (b.k === 'memory') {
+        const m = el('div', 'memline');
+        m.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 1.5h6v9L6 8.5l-3 2z"/></svg>';
+        m.appendChild(el('span', null, `Saved to memory (${b.scope === 'everywhere' ? 'all files' : 'this file'}): ${b.note}`));
+        const manage = el('button', 'link-btn', 'Manage');
+        manage.onclick = openSettings;
+        m.appendChild(manage);
+        frag.appendChild(m);
+      } else if (b.k === 'steps') {
+        const d = document.createElement('details');
+        d.className = 'steps';
+        if (live && blocks[blocks.length - 1] === b) d.open = true;
+        if (b.userOpen != null) d.open = b.userOpen;
+        d.ontoggle = () => { b.userOpen = d.open; };
+        const n = b.items.length;
+        const failed = b.items.filter((s) => s.state === 'fail').length;
+        const runningNow = b.items.some((s) => s.state === 'run');
+        d.appendChild(el('summary', null, runningNow ? stepLabel(b.items[n - 1].name) : `${n} step${n === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`));
+        for (const s of b.items) {
+          const row = el('div', 'step');
+          row.appendChild(el('span', `si ${s.state}`));
+          const col = el('div');
+          col.appendChild(el('span', 'what', stepLabel(s.name)));
+          if (s.summary) col.appendChild(el('span', 'detail', s.summary));
+          if (s.state === 'fail' && s.preview) col.appendChild(el('span', 'detail err', s.preview));
+          row.appendChild(col);
+          d.appendChild(row);
+        }
+        frag.appendChild(d);
+      } else if (b.k === 'warn') {
+        frag.appendChild(el('div', 'callout', b.text));
+      }
+    }
+    return frag;
+  }
+
+  function renderFooter(entry) {
+    const f = el('div', 'foot');
+    const ft = entry.footer;
+    const secs = ft.ms != null ? `${Math.max(1, Math.round(ft.ms / 1000))}s` : '';
+    if (ft.ok) {
+      if (entry.model) f.appendChild(el('span', null, `${entry.modelLabel || modelLabel(entry.model)}${entry.effort ? `, ${EFFORT_LABEL[entry.effort]}` : ''}`));
+      f.appendChild(el('span', null, secs));
+      if (ft.tokens) {
+        const t = el('span', null, `${kfmt(ft.tokens.input)} in${ft.tokens.cached ? ` (${kfmt(ft.tokens.cached)} cached)` : ''}, ${kfmt(ft.tokens.output)} out`);
+        t.title = 'Tokens for this request. Cached input is billed at a fraction of the normal rate.';
+        f.appendChild(t);
+      }
+      if (ft.cost != null) {
+        const c = el('span', null, `$${ft.cost.toFixed(2)}`);
+        c.title = 'Estimated at API prices. On a Claude plan login this counts toward plan limits instead.';
+        f.appendChild(c);
+      }
+    } else {
+      f.appendChild(el('span', 'fail', ft.stopped ? `Stopped after ${secs}` : `Failed: ${ft.error || 'unknown error'}`));
+    }
+    if (entry.changes && entry.changes.length && entry.mode !== 'build') {
+      const n = entry.changes.length;
+      const b = el('button', 'btn sm', `Select ${n} changed layer${n === 1 ? '' : 's'}`);
+      b.onclick = () => post({ type: 'focus', ids: entry.changes.map((c) => c.id) });
+      f.appendChild(b);
+    }
+    const text = (entry.blocks || []).filter((b) => b.k === 'text').map((b) => b.text).join('\n\n');
+    if (text) {
+      const cp = el('button', 'icon-btn');
+      cp.title = 'Copy reply';
+      cp.setAttribute('aria-label', 'Copy reply');
+      cp.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h2"/></svg>';
+      cp.onclick = () => toast(copyText(text) ? 'Reply copied.' : 'Copy failed.');
+      f.appendChild(cp);
+    }
+    return f;
+  }
+
+  function renderAssistant(entry, live) {
+    const isPlan = entry.mode === 'plan' && !live && entry.footer && entry.footer.ok;
+    if (!isPlan) {
+      const box = el('div', 'msg assistant');
+      if (entry.lint) { const l = renderLint(entry); if (l) { l.style.marginTop = '0'; l.style.marginBottom = '10px'; box.appendChild(l); } }
+      box.appendChild(renderBlocks(entry, live));
+      if (!live) {
+        for (const c of [renderOptions(entry), renderBuildCard(entry), renderHandoffActions(entry)]) if (c) box.appendChild(c);
+      }
+      if (entry.footer) box.appendChild(renderFooter(entry));
+      return box;
+    }
+    const wrap = el('div', 'msg assistant');
+    const card = el('div', 'plan');
+    const head = el('div', 'plan-head');
+    head.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4.5 3.5h7M4.5 7h7M4.5 10.5h7"/><circle cx="2" cy="3.5" r=".6" fill="currentColor"/><circle cx="2" cy="7" r=".6" fill="currentColor"/><circle cx="2" cy="10.5" r=".6" fill="currentColor"/></svg>';
+    head.appendChild(el('span', null, 'Plan'));
+    card.appendChild(head);
+    const body = el('div', 'plan-body');
+    body.appendChild(renderBlocks(entry, false));
+    card.appendChild(body);
+    const act = el('div', 'plan-actions');
+    if (entry.planState === 'building') act.appendChild(el('span', 'plan-state', 'Building this plan…'));
+    else if (entry.planState === 'built') act.appendChild(el('span', 'plan-state', 'Built. See below.'));
+    else {
+      const go = el('button', 'btn primary sm', 'Build this plan');
+      go.disabled = !!state.running;
+      go.onclick = () => { setBusy(go, 'Starting…'); buildPlan(entry); };
+      const rev = el('button', 'btn sm', 'Revise');
+      rev.onclick = () => { setMode('plan'); $('input').placeholder = 'What should change in the plan?'; $('input').focus(); };
+      act.append(go, rev);
+    }
+    card.appendChild(act);
+    wrap.appendChild(card);
+    wrap.appendChild(renderFooter(entry));
+    return wrap;
+  }
+
+  function intro() {
+    const box = el('div', 'intro');
+    const offline = state.health === 'offline' || state.health === 'unauthorized' || !state.settings.token;
+    let html = '<h1>Point at layers and talk it through</h1>';
+    html += '<p>Select layers to set the target. Claude gets a compact snapshot and one picture of them, and can read the rest of the file, Jira tickets and Confluence specs as needed.</p>';
+    html += '<dl><dt>Ask</dt><dd>Questions and critique. Nothing is edited.</dd><dt>Plan</dt><dd>Claude proposes the steps and waits for you to approve.</dd><dt>Build</dt><dd>Claude edits the file. You watch it happen.</dd></dl>';
+    if (offline) {
+      html += '<p>To connect:</p><ol>' +
+        '<li>In the <code>bridge</code> folder, run <code>npm start</code>.</li>' +
+        '<li>Copy the token it prints into <button class="link-btn" data-open-settings>settings</button>.</li>' +
+        '<li>In the same place, connect your Claude account, Figma, and optionally Jira.</li></ol>';
+    }
+    if (state.file && !state.file.key) {
+      html += '<p class="callout">Figma did not share this file’s key. Paste the file link in <button class="link-btn" data-open-settings>settings</button> so Claude reads and edits the right file.</p>';
+    }
+    box.innerHTML = html;
+    return box;
+  }
+
+  function renderLog() {
+    const log = $('log');
+    log.textContent = '';
+    if (!state.transcript.length) log.appendChild(intro());
+    for (const entry of state.transcript) {
+      const live = state.running && state.running.entry === entry;
+      const node = entry.role === 'user' ? renderUser(entry) : renderAssistant(entry, live);
+      if (live) state.running.el = node;
+      log.appendChild(node);
+    }
+    log.scrollTop = log.scrollHeight;
+  }
+
+  let rafPending = false;
+  function rerenderLive() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      const r = state.running;
+      if (!r || !r.el) return;
+      const log = $('log');
+      const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+      const fresh = renderAssistant(r.entry, true);
+      r.el.replaceWith(fresh);
+      r.el = fresh;
+      if (atBottom) log.scrollTop = log.scrollHeight;
+    });
+  }
+
+  $('log').addEventListener('click', (e) => {
+    const id = e.target.closest('[data-id]');
+    if (id) post({ type: 'focus', ids: [id.dataset.id] });
+    const a = e.target.closest('[data-href]');
+    if (a) { e.preventDefault(); post({ type: 'open-external', url: a.dataset.href }); }
+    if (e.target.closest('[data-open-settings]')) openSettings();
+  });
+
+  // ---------- bridge connection ----------
+  const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${state.settings.token}` });
+  const baseUrl = () => (state.settings.url || 'http://localhost:4545').replace(/\/+$/, '');
+
+  function setStatus(kind, text, title) {
+    $('statusDot').className = `dot ${kind}`;
+    $('statusText').textContent = kind === 'ready' ? '' : text;
+    $('status').title = title || text || '';
+  }
+
+  async function checkHealth() {
+    if (!state.settings.token) {
+      state.health = 'unauthorized';
+      setStatus('bad', 'Add token', 'Paste the bridge token in settings');
+    } else {
+      try {
+        const res = await fetch(`${baseUrl()}/health`, { headers: headers() });
+        if (res.status === 401) {
+          state.health = 'unauthorized';
+          setStatus('bad', 'Wrong token', 'Copy it again from bridge/.bridge-token');
+        } else if (res.status === 429) {
+          state.health = 'unauthorized';
+          setStatus('bad', 'Locked for a minute', 'The bridge saw too many wrong tokens and is refusing requests briefly');
+        } else {
+          const data = await res.json();
+          const st = data.status;
+          const figma = st && st.mcp ? st.mcp.find((s) => /figma/i.test(s.name)) : null;
+          if (figma && !['connected', 'pending'].includes(figma.status)) {
+            state.health = 'warn';
+            setStatus('warn', `Figma ${figma.status}`, 'Run claude, then /mcp, and sign in to Figma');
+          } else {
+            state.health = 'ready';
+            setStatus('ready', '', data.busy ? 'Bridge is working' : 'Connected to the bridge');
+            if (state.conns) updateHeaderFromConns();
+          }
+        }
+      } catch (e) {
+        state.health = 'offline';
+        setStatus('bad', 'Offline', 'Run npm start in the bridge folder');
+      }
+    }
+    if (!state.transcript.length) renderLog();
+    return state.health;
+  }
+  setInterval(() => { if (!state.running) checkHealth(); }, 15000);
+
+  // ---------- sending ----------
+  async function send(opts = {}) {
+    const typed = (opts.text != null ? opts.text : $('input').value).trim();
+    const atts = opts.text != null ? [] : state.atts.slice();
+    const action = opts.action !== undefined ? opts.action : state.action;
+    const a = action ? ACTIONS_UI[action] : null;
+    if ((!typed && !atts.length && !action) || state.running) return;
+    if (state.file && !state.file.key) {
+      toast('Paste this file’s link in settings first.', 'Settings', openSettings);
+      return;
+    }
+    const items = opts.targets || target();
+    if (a && a.needsTarget && !items.length) {
+      toast(`Select the layers for ${a.label.toLowerCase()} first.`);
+      return;
+    }
+    const mode = opts.mode || (a ? a.mode : action ? 'build' : state.settings.mode);
+    const model = state.model;
+    const effort = state.effort;
+    const conv = state.conv;
+    const sig = items.length ? items.map((t) => t.id).sort().join(',') : `page:${state.selectionPage}`;
+    // Review and handoff need full detail even for a target seen before.
+    const full = action === 'review' || action === 'handoff' || !(conv.sent || []).includes(sig);
+    const withShot = full && items.length > 0 && state.settings.screenshot !== false;
+
+    let ctx;
+    try {
+      ctx = await askCode('build-context', { ids: items.map((t) => t.id), withImages: withShot, full });
+    } catch (e) {
+      toast(`Could not read the selection: ${e.message}`);
+      return;
+    }
+
+    // Exact checks run in the plugin first; Claude gets the summary.
+    let lint = null;
+    if (action === 'review') {
+      try { lint = await askCode('lint', { ids: items.map((t) => t.id) }); } catch (e) { lint = null; }
+      if (lint) {
+        const counts = {};
+        for (const f of lint.findings) counts[f.rule] = (counts[f.rule] || 0) + 1;
+        ctx.context.lint = { scanned: lint.scanned, counts, items: lint.findings.slice(0, 40).map((f) => [f.id, f.rule, f.msg]) };
+      }
+    }
+    if (opts.fix) ctx.context.fix = opts.fix.map((f) => [f.id, f.rule, f.msg]);
+
+    const title = a ? a.title({ count: state.actionCount }) : null;
+    const display = action && !a ? typed : a ? (typed ? `${title}: ${typed}` : title) : typed || '(see attached images)';
+    const userEntry = { role: 'user', text: display, mode, action: action || undefined, targets: items.map((t) => ({ id: t.id, name: t.name })), attCount: atts.length || undefined };
+    if (!items.length) userEntry.page = ctx.context.page.name;
+    const runId = Date.now();
+    const entry = { role: 'assistant', blocks: [], mode, model, effort: effort || undefined, modelLabel: modelLabel(model), action: action || undefined, targets: userEntry.targets, runId };
+    if (lint) entry.lint = lint;
+    state.transcript.push(userEntry, entry);
+    if (opts.text == null) { $('input').value = ''; clearAtts(); autosize(); if (state.action) disarm(); }
+    if (opts.plan) opts.plan.planState = 'building';
+    if (opts.from) opts.from.followed = action;
+
+    // Builds get a snapshot first so they can be reverted.
+    const controller = new AbortController();
+    state.running = { controller, entry, el: null, runId };
+    setRunning(true);
+    renderLog();
+    try {
+      const started = await askCode('run-start', { runId, ids: items.map((t) => t.id), snapshot: mode === 'build' });
+      entry.revert = mode === 'build' ? started.revert : undefined;
+    } catch (e) {
+      entry.revert = mode === 'build' ? { available: false, note: `Snapshot failed: ${e.message}` } : undefined;
+    }
+
+    let prompt = typed || title || 'See the attached images.';
+    if (conv.pendingNote) { prompt = `(${conv.pendingNote})\n\n${prompt}`; conv.pendingNote = null; }
+
+    let footer = null;
+    try {
+      const res = await fetch(`${baseUrl()}/chat`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          prompt, mode, model, effort: effort || undefined, action: action || undefined, actionOptions: { count: state.actionCount },
+          sessionId: conv.sessionId, context: ctx.context,
+          images: [...ctx.images, ...atts.map((x) => ({ data: x.data, mediaType: x.mediaType }))],
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { msg = (await res.json()).error || msg; } catch (e) {}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          let ev;
+          try { ev = JSON.parse(line); } catch (e) { continue; }
+          const f = onEvent(entry, ev);
+          if (f) footer = f;
+        }
+      }
+    } catch (e) {
+      const stopped = e.name === 'AbortError';
+      footer = { ok: false, stopped, error: stopped ? 'Stopped' : /Failed to fetch|NetworkError/.test(e.message) ? 'Bridge offline. Run npm start in the bridge folder.' : e.message };
+      if (!stopped) checkHealth();
+    }
+
+    entry.footer = footer || { ok: false, error: 'The bridge closed the connection.' };
+    for (const b of entry.blocks) if (b.k === 'steps') b.items.forEach((x) => { if (x.state === 'run') x.state = 'fail'; });
+
+    if (entry.footer.ok) {
+      if (mode === 'build') conv.sent = [];
+      else if (full) conv.sent = [...(conv.sent || []), sig].slice(-20);
+    }
+    if (opts.plan) opts.plan.planState = entry.footer.ok ? 'built' : undefined;
+
+    const fullText = entry.blocks.filter((b) => b.k === 'text').map((b) => b.text).join('\n');
+    let optionMeta = [];
+    if (action === 'explore') {
+      const m = fullText.match(OPTIONS_RE);
+      if (m) { try { optionMeta = JSON.parse(m[1]).filter((o) => o && typeof o.id === 'string' && ID_RE.test(o.id)); } catch (e) {} }
+      entry.optionMeta = optionMeta;
+    }
+    post({
+      type: 'run-end', runId,
+      mentionedIds: mode === 'build' ? [...fullText.matchAll(ID_RE_G)].map((m) => m[1]) : [],
+      explore: action === 'explore', optionIds: optionMeta.map((o) => o.id),
+    });
+    setTimeout(() => {
+      state.running = null;
+      setRunning(false);
+      renderLog();
+      saveConv();
+    }, 0);
+  }
+
+  function buildPlan(planEntry) {
+    setMode('build');
+    send({ text: 'Build the plan above.', mode: 'build', targets: planEntry.targets || [], plan: planEntry });
+  }
+
+  function onEvent(entry, ev) {
+    const blocks = entry.blocks;
+    const last = blocks[blocks.length - 1];
+    switch (ev.t) {
+      case 'session': state.conv.sessionId = ev.id; break;
+      case 'warn': blocks.push({ k: 'warn', text: ev.message }); break;
+      case 'memory': blocks.push({ k: 'memory', scope: ev.scope, note: ev.note }); break;
+      case 'text':
+        if (last && last.k === 'text') last.text += ev.d;
+        else blocks.push({ k: 'text', text: ev.d.replace(/^\n+/, '') });
+        break;
+      case 'tool': {
+        const item = { id: ev.id, name: ev.name, summary: ev.summary, state: 'run' };
+        if (last && last.k === 'steps') last.items.push(item);
+        else blocks.push({ k: 'steps', items: [item] });
+        break;
+      }
+      case 'tool_done':
+        for (const b of blocks) {
+          if (b.k !== 'steps') continue;
+          const s = b.items.find((x) => x.id === ev.id);
+          if (s) { s.state = ev.ok ? 'ok' : 'fail'; if (!ev.ok) s.preview = ev.preview; }
+        }
+        break;
+      case 'done':
+        if (ev.sessionId) state.conv.sessionId = ev.sessionId;
+        rerenderLive();
+        return { ok: ev.ok, stopped: ev.stopped, ms: ev.ms, cost: ev.cost, tokens: ev.tokens, error: ev.error };
+    }
+    rerenderLive();
+    return null;
+  }
+
+  function onChanges(msg) {
+    const entry = state.transcript.find((e) => e.role === 'assistant' && e.runId === msg.runId);
+    if (!entry || entry.mode !== 'build') return;
+    entry.changes = msg.items;
+    entry.created = msg.created;
+    entry.outside = msg.outside;
+    if (entry.action === 'explore') {
+      const meta = new Map((entry.optionMeta || []).map((o) => [o.id, o]));
+      entry.options = (msg.options || []).map((o, i) => ({ ...o, label: (meta.get(o.id) || {}).label || String.fromCharCode(65 + i), title: (meta.get(o.id) || {}).title || o.name }));
+    }
+    if (!state.running) { renderLog(); saveConv(); }
+  }
+
+  // ---------- revert, keep, options ----------
+  async function revertEntry(entry) {
+    try {
+      const r = await askCode('revert', { runId: entry.runId });
+      toast(r.message);
+      if (r.ok) {
+        entry.reverted = true;
+        state.conv.sent = [];
+        state.conv.pendingNote = 'Note: I reverted your previous build. Those changes are gone and the file is back to how it was before it.';
+      }
+    } catch (e) { toast(e.message); }
+    renderLog();
+    saveConv();
+  }
+  async function keepEntry(entry) {
+    try { await askCode('keep', { runId: entry.runId }); } catch (e) {}
+    entry.kept = true;
+    renderLog();
+    saveConv();
+  }
+  async function useOption(entry, opt) {
+    const original = (entry.targets || [])[0];
+    try {
+      const r = await askCode('use-option', { optionId: opt.id, originalId: original && original.id, otherIds: entry.options.map((o) => o.id) });
+      toast(r.message);
+      if (r.ok) {
+        entry.chosen = opt.id;
+        entry.kept = true;
+        askCode('keep', { runId: entry.runId }).catch(() => {});
+        state.conv.sent = [];
+        state.conv.pendingNote = `Note: I picked Option ${opt.label} (${opt.title}); it now replaces the original and the other options were deleted.`;
+      }
+    } catch (e) { toast(e.message); }
+    renderLog();
+    saveConv();
+  }
+
+  function stop() {
+    if (!state.running) return;
+    state.running.controller.abort();
+    fetch(`${baseUrl()}/stop`, { method: 'POST', headers: headers() }).catch(() => {});
+  }
+
+  function setRunning(on) {
+    const b = $('send');
+    b.textContent = on ? 'Stop' : 'Send';
+    b.className = on ? 'btn stop send' : 'btn primary send';
+    if (!on) checkHealth();
+  }
+
+  $('send').onclick = () => (state.running ? stop() : send());
+  $('input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+    if (e.key === 'Escape' && state.running) stop();
+    else if (e.key === 'Escape' && state.action) disarm();
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      const order = ['ask', 'plan', 'build'];
+      setMode(order[(order.indexOf(state.settings.mode) + 1) % 3]);
+    }
+  });
+  function autosize() {
+    const t = $('input');
+    t.style.height = 'auto';
+    t.style.height = Math.min(200, Math.max(52, t.scrollHeight)) + 'px';
+  }
+  $('input').addEventListener('input', autosize);
+
+  for (const [key, a] of Object.entries(ACTIONS_UI)) {
+    const b = el('button', null, a.label);
+    b.dataset.action = key;
+    b.title = a.mode === 'build' ? `${a.label}: edits the file, with Revert` : `${a.label}: read-only`;
+    b.onclick = () => arm(key);
+    $('quick').appendChild(b);
+  }
+  for (const c of INSERT_CHIPS) {
+    const b = el('button', null, c.label);
+    b.onclick = () => {
+      const t = $('input');
+      t.value = t.value.trim() ? `${t.value.trim()} ${c.text}` : c.text;
+      autosize();
+      t.focus();
+      t.setSelectionRange(t.value.length, t.value.length);
+    };
+    $('quick').appendChild(b);
+  }
+
+  // ---------- image attachments ----------
+  async function addFiles(files) {
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) continue;
+      if (state.atts.length >= MAX_ATTS) { toast(`Up to ${MAX_ATTS} images per message.`); break; }
+      try { state.atts.push(await shrink(f)); } catch (e) { toast('Could not read that image.'); }
+    }
+    renderAtts();
+  }
+  // Downscale to 1200px on the long edge to keep image tokens in check.
+  async function shrink(file) {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1200 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    let url = c.toDataURL('image/png');
+    let mediaType = 'image/png';
+    if (url.length > 1500000 || file.type === 'image/jpeg') { url = c.toDataURL('image/jpeg', 0.88); mediaType = 'image/jpeg'; }
+    return { url, data: url.split(',')[1], mediaType };
+  }
+  function renderAtts() {
+    const box = $('pendingAtts');
+    box.textContent = '';
+    box.hidden = !state.atts.length;
+    state.atts.forEach((a, i) => {
+      const d = el('div', 'patt');
+      const img = document.createElement('img');
+      img.src = a.url;
+      img.alt = `Attachment ${i + 1}`;
+      const x = el('button', null, '×');
+      x.setAttribute('aria-label', 'Remove image');
+      x.onclick = () => { state.atts.splice(i, 1); renderAtts(); };
+      d.append(img, x);
+      box.appendChild(d);
+    });
+  }
+  function clearAtts() { state.atts = []; renderAtts(); }
+  $('attach').onclick = () => $('file').click();
+  $('file').onchange = () => { addFiles([...$('file').files]); $('file').value = ''; };
+  $('input').addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData ? e.clipboardData.items : [])].filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter(Boolean);
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+  const comp = $('composer');
+  comp.addEventListener('dragover', (e) => { e.preventDefault(); comp.classList.add('drag'); });
+  comp.addEventListener('dragleave', () => comp.classList.remove('drag'));
+  comp.addEventListener('drop', (e) => { e.preventDefault(); comp.classList.remove('drag'); addFiles([...e.dataTransfer.files]); });
+
+  // ---------- copy prompt for claude.ai ----------
+  async function copyPrompt() {
+    const items = target();
+    let ctx;
+    try {
+      ctx = await askCode('build-context', { ids: items.map((t) => t.id), withImages: false, full: true });
+    } catch (e) {
+      toast(`Could not read the selection: ${e.message}`);
+      return;
+    }
+    const req = $('input').value.trim() || '(describe the change here)';
+    const lines = [];
+    if (ctx.links.length) {
+      lines.push(`Work on ${ctx.links.length === 1 ? 'this layer' : 'these layers'} in Figma:`);
+      for (const l of ctx.links) lines.push(`- ${l.name}: ${l.link || l.id}`);
+    } else {
+      lines.push(`Work on the page “${ctx.context.page.name}” in this Figma file: ${ctx.context.file.url || '(file link unknown)'}`);
+    }
+    lines.push('', `Request: ${req}`);
+    if (state.settings.details !== false) {
+      lines.push('', 'Layer snapshot from the plugin (for reference):', '```json', JSON.stringify(ctx.context.target.length ? ctx.context.target : ctx.context.pageOverview), '```');
+    }
+    if (copyText(lines.join('\n'))) toast('Prompt copied. Paste it into a Claude chat.', 'Open claude.ai', () => post({ type: 'open-external', url: 'https://claude.ai/new' }));
+    else toast('Copy failed.');
+  }
+  function copyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+    return ok;
+  }
+  $('copy').onclick = copyPrompt;
+
+  // ---------- busy buttons ----------
+  // Shows a spinner and a "doing it" label until the work finishes, so a
+  // click always visibly registers.
+  function setBusy(btn, label) {
+    const prev = { html: btn.innerHTML, disabled: btn.disabled };
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '';
+    btn.append(el('span', 'spin'), el('span', null, label));
+    return () => {
+      if (!btn.isConnected) return;
+      btn.innerHTML = prev.html;
+      btn.disabled = prev.disabled;
+      btn.removeAttribute('aria-busy');
+    };
+  }
+  async function runBusy(btn, label, fn) {
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    const done = setBusy(btn, label);
+    try { return await fn(); } finally { done(); }
+  }
+
+  // ---------- toast ----------
+  let toastTimer;
+  function toast(text, actionText, action) {
+    $('toastText').textContent = text;
+    const a = $('toastAction');
+    a.hidden = !actionText;
+    a.textContent = actionText || '';
+    a.onclick = () => { $('toast').classList.remove('show'); action && action(); };
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('toast').classList.remove('show'), 4500);
+  }
+
+  // ---------- settings ----------
+  function openSettings() {
+    closeSheets();
+    $('sUrl').value = state.settings.url || 'http://localhost:4545';
+    $('sToken').value = state.settings.token || '';
+    $('sDetails').checked = state.settings.details !== false;
+    const hasKey = state.file && state.file.key;
+    $('sFile').value = hasKey ? state.file.url : '';
+    $('sFile').disabled = !!hasKey;
+    $('fileHint').textContent = hasKey ? 'Figma provided the file key, so nothing to do here.' : 'Copy it from Share, then Copy link. Needed so Claude works on this file.';
+    $('testResult').textContent = '';
+    $('settings').classList.add('open');
+    loadConnections(true);
+    loadMemory();
+    (state.settings.token ? $('sUrl') : $('sToken')).focus();
+  }
+  function readSettings() {
+    state.settings.url = $('sUrl').value.trim() || 'http://localhost:4545';
+    state.settings.token = $('sToken').value.trim();
+    state.settings.details = $('sDetails').checked;
+    post({ type: 'store', key: 'settings', value: state.settings });
+    if (!$('sFile').disabled && $('sFile').value.trim()) post({ type: 'set-file-url', url: $('sFile').value.trim() });
+  }
+  $('openSettings').onclick = () => ($('settings').classList.contains('open') ? closeSheets() : openSettings());
+  $('closeSettings').onclick = closeSheets;
+  $('status').onclick = openSettings;
+
+  // ---------- memory ----------
+  async function memApi(path, body) {
+    const res = await fetch(`${baseUrl()}/memory${path}`, body ? { method: 'POST', headers: headers(), body: JSON.stringify(body) } : { headers: headers() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  }
+  async function loadMemory() {
+    const list = $('memList');
+    const key = state.file && state.file.key;
+    let data;
+    try { data = await memApi(`?fileKey=${encodeURIComponent(key || '')}`); } catch (e) {
+      list.textContent = '';
+      list.appendChild(el('div', 'mem-empty', state.health === 'ready' ? e.message : 'Start the bridge to see memory.'));
+      return;
+    }
+    list.textContent = '';
+    const rows = [...data.file.map((n, i) => ({ n, i, scope: 'file' })), ...data.everywhere.map((n, i) => ({ n, i, scope: 'everywhere' }))];
+    if (!rows.length) { list.appendChild(el('div', 'mem-empty', 'No notes yet. Claude adds them while building; you can add your own below.')); return; }
+    for (const r of rows) {
+      const row = el('div', 'mem-item');
+      row.appendChild(el('span', null, r.n));
+      row.appendChild(el('span', 'scope', r.scope === 'file' ? 'This file' : 'All files'));
+      const del = el('button', 'icon-btn');
+      del.style.width = del.style.height = '22px';
+      del.setAttribute('aria-label', 'Delete note');
+      del.title = 'Delete';
+      del.innerHTML = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7"/></svg>';
+      del.onclick = async () => {
+        del.disabled = true;
+        row.style.opacity = '.5';
+        try { await memApi('/delete', { scope: r.scope, fileKey: key, index: r.i }); } catch (e) { toast(e.message); }
+        loadMemory();
+      };
+      row.appendChild(del);
+      list.appendChild(row);
+    }
+  }
+  $('memAdd').onclick = () => {
+    const note = $('memInput').value.trim();
+    if (!note) return;
+    runBusy($('memAdd'), 'Saving…', async () => {
+      try {
+        await memApi('/add', { scope: $('memScope').value, fileKey: state.file && state.file.key, note });
+        $('memInput').value = '';
+        toast('Saved. New conversations will start with it.');
+      } catch (e) { toast(e.message); }
+      await loadMemory();
+    });
+  };
+  $('memInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('memAdd').click(); });
+
+  // ---------- connections ----------
+  const ICONS = {
+    claude: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="7" cy="5" r="2.5"/><path d="M2.5 12.5c.6-2.3 2.3-3.5 4.5-3.5s3.9 1.2 4.5 3.5" stroke-linecap="round"/></svg>',
+    figma: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M4 1.5v11M10 1.5v11M1.5 4h11M1.5 10h11"/></svg>',
+    atlassian: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 3.5h10v2a1.5 1.5 0 000 3v2H2v-2a1.5 1.5 0 000-3z"/><path d="M8.5 3.5v7" stroke-dasharray="1.2 1.2"/></svg>',
+  };
+  const STATUS_TEXT = {
+    connected: ['ready', 'Connected'], 'needs-auth': ['warn', 'Signed out'], pending: ['warn', 'Connecting'],
+    failed: ['bad', 'Can’t connect'], disabled: ['', 'Turned off for the bridge'], 'not-added': ['', 'Not connected'],
+  };
+  state.conns = null;
+  state.connBusy = {}; // row id -> label, survives re-renders
+  let connTimer = null;
+  const codeDrafts = {};
+
+  async function connApi(path, body) {
+    const res = await fetch(`${baseUrl()}/connectors${path}`, body ? { method: 'POST', headers: headers(), body: JSON.stringify(body) } : { headers: headers() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function loadConnections(force) {
+    clearTimeout(connTimer);
+    if (!state.conns) renderConnections();
+    try {
+      state.conns = await connApi(force ? '?refresh=1' : '');
+      state.connsError = null;
+    } catch (e) {
+      state.connsError = /fetch|network/i.test(e.message) ? 'offline' : e.message;
+    }
+    renderConnections();
+    updateHeaderFromConns();
+    const running = state.conns && [state.conns.account, ...state.conns.connectors].some((c) => c.job && c.job.state === 'running');
+    if ($('settings').classList.contains('open')) connTimer = setTimeout(() => loadConnections(false), running ? 1500 : 15000);
+  }
+
+  function updateHeaderFromConns() {
+    const c = state.conns;
+    if (!c || state.health !== 'ready') return;
+    const figma = c.connectors.find((x) => x.id === 'figma');
+    if (!c.account.loggedIn && !(c.account.job && c.account.job.state === 'running')) setStatus('warn', 'Sign in to Claude', 'Open Connections in settings');
+    else if (figma && figma.status !== 'connected' && figma.status !== 'pending') setStatus('warn', 'Connect Figma', 'Open Connections in settings');
+  }
+
+  function connRow(key, name, statusKind, statusText, job, actions) {
+    const row = el('div', 'conn' + (state.connBusy[key] ? ' busy' : ''));
+    if (state.connBusy[key]) { statusKind = ''; statusText = state.connBusy[key]; }
+    const ic = el('div', 'ic');
+    ic.innerHTML = ICONS[key] || '';
+    row.appendChild(ic);
+    row.appendChild(el('div', 'nm', name));
+    const st = el('div', 'st');
+    const dot = el('span', `dot ${statusKind}`);
+    st.append(dot, el('span', null, statusText));
+    row.appendChild(st);
+    const act = el('div', 'act');
+    for (const a of actions) act.appendChild(a);
+    row.appendChild(act);
+    if (job && job.state !== 'done') {
+      const box = el('div', 'job' + (job.state === 'failed' ? ' failed' : ''));
+      box.appendChild(el('div', null, job.message || ''));
+      if (job.state === 'running') {
+        if (job.needsCode) {
+          const r = el('div', 'row');
+          const input = document.createElement('input');
+          input.placeholder = 'Paste code';
+          input.value = codeDrafts[key] || '';
+          input.oninput = () => { codeDrafts[key] = input.value; };
+          const submit = el('button', 'btn primary sm', 'Submit code');
+          const go = async () => {
+            if (!input.value.trim()) return;
+            await runBusy(submit, 'Checking…', async () => {
+              try { await connApi('/code', { id: key, code: input.value }); codeDrafts[key] = ''; } catch (e) { toast(e.message); }
+              await new Promise((r) => setTimeout(r, 1200)); // let the CLI answer before refreshing
+            });
+            loadConnections(false);
+          };
+          submit.onclick = go;
+          input.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+          r.append(input, submit);
+          box.appendChild(r);
+        }
+        const r2 = el('div', 'row');
+        if (job.url) {
+          const open = el('button', 'btn sm', 'Open sign-in page');
+          open.onclick = () => post({ type: 'open-external', url: job.url });
+          r2.appendChild(open);
+        }
+        const cancel = el('button', 'btn sm', 'Cancel');
+        cancel.onclick = () => runBusy(cancel, 'Cancelling…', async () => { await connApi('/cancel', { id: key }).catch(() => {}); await loadConnections(false); });
+        r2.appendChild(cancel);
+        box.appendChild(r2);
+      }
+      row.appendChild(box);
+    }
+    return row;
+  }
+
+  function actionBtn(key, label, primary, fn, busyLabel, title) {
+    const b = el('button', `btn sm${primary ? ' primary' : ''}`, label);
+    if (title) b.title = title;
+    if (state.connBusy[key]) { setBusy(b, state.connBusy[key]); return b; }
+    if (Object.keys(state.connBusy).length) { b.disabled = true; b.title = 'Wait for the current action to finish'; }
+    b.onclick = async () => {
+      if (state.connBusy[key]) return;
+      state.connBusy[key] = busyLabel || 'Working…';
+      setBusy(b, state.connBusy[key]);
+      renderConnections(); // lock the rest of the row too
+      try {
+        const r = await fn();
+        if (r && r.message && r.state !== 'running') toast(r.message);
+      } catch (e) { toast(e.message); }
+      delete state.connBusy[key];
+      loadConnections(false);
+    };
+    return b;
+  }
+
+  function renderConnections() {
+    const box = $('conns');
+    const note = $('connsNote');
+    box.textContent = '';
+    note.textContent = '';
+    if (state.connsError === 'offline' || state.health === 'offline' || state.health === 'unauthorized') {
+      box.hidden = true;
+      note.textContent = state.health === 'unauthorized'
+        ? 'Add the bridge token below to manage connections.'
+        : 'Start the bridge (npm start) to manage connections.';
+      return;
+    }
+    box.hidden = false;
+    const c = state.conns;
+    if (!c) {
+      box.appendChild(connRow('claude', 'Claude account', '', 'Checking…', null, []));
+      return;
+    }
+    if (state.connsError) note.textContent = state.connsError;
+
+    const acc = c.account;
+    const accRunning = acc.job && acc.job.state === 'running';
+    box.appendChild(connRow('claude', 'Claude account',
+      acc.loggedIn ? 'ready' : 'warn',
+      acc.loggedIn ? (acc.email ? `Signed in as ${acc.email}` : 'Signed in') : 'Not signed in',
+      acc.job,
+      accRunning ? [] : [acc.loggedIn
+        ? actionBtn('claude', 'Switch', false, () => connApi('/connect', { id: 'claude' }), 'Opening sign-in…')
+        : actionBtn('claude', 'Sign in', true, () => connApi('/connect', { id: 'claude' }), 'Opening sign-in…')]));
+
+    for (const k of c.connectors) {
+      const running = k.job && k.job.state === 'running';
+      const [kind, text] = STATUS_TEXT[k.status] || ['bad', k.status];
+      const fromClaude = k.managedBy === 'claude.ai';
+      const many = (k.servers || []).length > 1 ? ` (${k.servers.length} connections)` : '';
+      const label = k.status === 'failed' && k.detail ? `${text}: ${k.detail}`
+        : k.status === 'connected' ? `${text}${fromClaude ? ' (from your claude.ai connectors)' : many}`
+        : k.status === 'disabled' ? `${text}${fromClaude ? '; still on in claude.ai' : ''}`
+        : `${text}. ${k.about}`;
+      const actions = running ? []
+        : k.status === 'connected'
+          ? [actionBtn(k.id, 'Disconnect', false, () => connApi('/disconnect', { id: k.id }), 'Disconnecting…',
+              fromClaude ? 'Turns it off for the bridge only; claude.ai is unaffected' : 'Signs out here; connections from claude.ai are turned off for the bridge only')]
+          : k.status === 'disabled'
+            ? [actionBtn(k.id, 'Turn on', true, () => connApi('/connect', { id: k.id }), 'Turning on…')]
+            : [actionBtn(k.id, k.status === 'not-added' ? 'Connect' : 'Reconnect', true, () => connApi('/connect', { id: k.id }), k.status === 'not-added' ? 'Connecting…' : 'Reconnecting…')];
+      box.appendChild(connRow(k.id, k.name, kind, label, k.job, actions));
+    }
+    note.textContent = 'Sign-ins open in your browser, the same way connectors work in the Claude app. Approve there, then come back.';
+  }
+  $('saveSettings').onclick = () => runBusy($('saveSettings'), 'Saving…', async () => {
+    readSettings();
+    const h = await checkHealth();
+    loadConnections(true);
+    if (h === 'ready' || h === 'warn') $('testResult').textContent = 'Saved and connected.';
+    else $('testResult').textContent = h === 'offline' ? 'Saved. The bridge is not reachable at that address yet.' : 'Saved. The bridge rejected the token.';
+  });
+  $('testConn').onclick = () => runBusy($('testConn'), 'Checking…', async () => {
+    readSettings();
+    $('testResult').textContent = '';
+    const h = await checkHealth();
+    loadConnections(true);
+    $('testResult').textContent = {
+      ready: 'Connected to the bridge.',
+      warn: 'Connected, but the Figma MCP server needs attention. Run npm run doctor.',
+      offline: 'Cannot reach the bridge. Is npm start running?',
+      unauthorized: 'The bridge rejected this token.',
+    }[h] || '';
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && ($('settings').classList.contains('open') || $('history').classList.contains('open'))) closeSheets();
+  });
+
+  // ---------- resize grip ----------
+  (() => {
+    const grip = $('grip');
+    let start = null;
+    grip.addEventListener('pointerdown', (e) => { start = { x: e.screenX, y: e.screenY, w: window.innerWidth, h: window.innerHeight }; grip.setPointerCapture(e.pointerId); });
+    grip.addEventListener('pointermove', (e) => { if (start) post({ type: 'resize', width: start.w + e.screenX - start.x, height: start.h + e.screenY - start.y }); });
+    grip.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      post({ type: 'resize', width: start.w + e.screenX - start.x, height: start.h + e.screenY - start.y, save: true });
+      start = null;
+    });
+  })();
+
+  renderTarget();
+  post({ type: 'ready' });
+})();
+</script>
+</body>
+</html>
